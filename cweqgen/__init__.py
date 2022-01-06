@@ -1,1 +1,1 @@
-from equations import *
+from .equations import equations

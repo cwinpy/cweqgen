@@ -1,3 +1,4 @@
-# CWEquationGenerator
+# The CW Equation Generator
 
-A Python package to generate a range of common CW equations
+The cweqgen (pronouced like "_Queck-Jen_") package provides a way to generate a range
+of common CW equations using user supplied fiducial values.
