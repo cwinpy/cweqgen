@@ -1,14 +1,13 @@
 import abc
+import io
 
 import numpy as np
 from numpy import pi
 
 import astropy.units as u
-from astropy.units.format import Latex
 from astropy.units.quantity import Quantity
 from astropy.constants import G, c
 
-import matplotlib as mpl
 from matplotlib import pyplot as plt
 
 from .converters import *
@@ -146,7 +145,6 @@ ALLOWED_VALUES = {
 }
 
 
-#: current equations
 def equations(equation, **kwargs):
     """
     This function holds information on the set of equations that are defined.
@@ -505,34 +503,7 @@ def equations(equation, **kwargs):
             latex_equation += varstr
 
             if displaytype.lower() == "matplotlib":
-                try:
-                    with mpl.rc_context({"text.usetex": True}):
-                        fig = plt.figure()
-                        ax = fig.add_subplot(1, 1, 1)
-                        ax.text(
-                            0.0,
-                            0.0,
-                            "$" + latex_equation + "$",
-                            horizontalalignment="left",
-                            verticalalignment="center",
-                            transform=ax.transAxes,
-                        )
-                        ax.axis("off")
-                        fig.tight_layout()
-                except RuntimeError:
-                    fig = plt.figure()
-                    ax = fig.add_subplot(1, 1, 1)
-                    ax.text(
-                        0.0,
-                        0.0,
-                        "$" + latex_equation + "$",
-                        horizontalalignment="left",
-                        verticalalignment="center",
-                        transform=ax.transAxes,
-                    )
-                    ax.axis("off")
-                    fig.tight_layout()
-                return fig
+                return EquationLaTeXToImage(latex_equation)
             else:
                 return EquationLaTeXString(latex_equation)
 
@@ -621,34 +592,7 @@ def equations(equation, **kwargs):
             latex_equation += fiducial
 
             if displaytype.lower() == "matplotlib":
-                try:
-                    with mpl.rc_context({"text.usetex": True}):
-                        fig = plt.figure()
-                        ax = fig.add_subplot(1, 1, 1)
-                        ax.text(
-                            0.0,
-                            0.0,
-                            "$" + latex_equation + "$",
-                            horizontalalignment="left",
-                            verticalalignment="center",
-                            transform=ax.transAxes,
-                        )
-                        ax.axis("off")
-                        fig.tight_layout()
-                except RuntimeError:
-                    fig = plt.figure()
-                    ax = fig.add_subplot(1, 1, 1)
-                    ax.text(
-                        0.0,
-                        0.0,
-                        "$" + latex_equation + "$",
-                        horizontalalignment="left",
-                        verticalalignment="center",
-                        transform=ax.transAxes,
-                    )
-                    ax.axis("off")
-                    fig.tight_layout()
-                return fig
+                return EquationLaTeXToImage(latex_equation)
             else:
                 return EquationLaTeXString(latex_equation)
 
@@ -684,6 +628,11 @@ class EquationLaTeXString:
         hook into the Jupyter notebook rich display system
         https://ipython.readthedocs.io/en/stable/config/integrating.html#rich-display
         and show the resulting string as a LaTeX equation.
+
+        Parameters
+        ----------
+        latexstring: str
+            The LaTeX string defining the equation.
         """
 
         self.text = latexstring
@@ -696,3 +645,55 @@ class EquationLaTeXString:
 
     def _repr_latex_(self):
         return "$" + self.text + "$"
+
+
+class EquationLaTeXToImage:
+    def __init__(self, latexstring,  dpi=200):
+        """
+        Class to hold a LaTeX equation string and covert it to an image for
+        display in a Jupyter notebook.
+
+        Parameters
+        ----------
+        latexstring: str
+            The LaTeX string defining the equation.
+        dpi: int
+            The resolution (dots per inch) of the output plot.
+        """
+
+        self.text = latexstring
+
+        self.dpi = dpi
+        self.fig, ax = plt.subplots(1)
+        
+        try:
+            t = ax.text(
+                0.05,
+                0.5,
+                "$" + self.text + "$",
+                usetex=True,
+            )
+        except RuntimeError:
+            t = ax.text(
+                0.0,
+                0.5,
+                "$" + self.text + "$",
+            )
+        ax.axis("off")
+
+        # crop figure to tight around the text
+        bb = t.get_window_extent(renderer=self.fig.canvas.get_renderer())
+        transf = ax.transData.inverted()
+        bb_datacoords = bb.transformed(transf)
+
+        rect = bb_datacoords.get_points().flatten()
+        rect[3] += 0.1 * rect[3]  # add 10% on to upper value for some reason!
+
+        tight_params = {"rect": rect}
+
+        self.fig.set_dpi(self.dpi)
+        self.fig.set_tight_layout(tight_params)
+
+    def savefig(self, **kwargs):
+        kwargs.setdefault("dpi", self.dpi)
+        return self.fig.savefig(**kwargs)
