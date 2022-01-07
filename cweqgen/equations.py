@@ -1,7 +1,5 @@
 import abc
-import io
 
-import numpy as np
 from numpy import pi
 
 import astropy.units as u
