@@ -8,11 +8,12 @@ from astropy.constants import G, c
 
 from matplotlib import pyplot as plt
 
-from .converters import *
+from .definitions import EQN_DEFINITIONS
 from .docstrings import DOCSTRINGS
 from .reference import REFERENCES
 
 
+#: allowed variables for equations
 ALLOWED_VALUES = {
     "h0": {
         "value": "Gravitational wave amplitude",
@@ -140,120 +141,26 @@ ALLOWED_VALUES = {
         "units": "kpc",
         "sign": ">= 0",
     },
+    "brakingindex": {
+        "value": "The braking index of a pulsar",
+        "latex_string": "n",
+        "aliases": ["brakingindex", "n", "$n$"],
+        "units": None,
+        "sign": None,
+    }
 }
 
 
 def equations(equation, **kwargs):
     """
-    This function holds information on the set of equations that are defined.
-
-    The equation definition information is held in a class attribute called
-    equation_info. If defining a new equation the information should be added
-    into this dictionary. The dictionary keys give the equation's "name", with
-    which it must be referred to. The values are dictionaries containing the
-    following keys:
-
-    "default_fiducial_values": dict - a dictionary with keys for all variable
-    parameters in the equation. Each key gives a 2-tuple containing the default
-    value of that variable (with appropriate :class:`astropy.unit.Unit`) and
-    the variable's exponent as a string. The variable parameter names must be
-    consistent with the names in the :var:`~cweqgen.equations.ALLOWED_VALUES`
-    dictionary.
-
-    "equation_constants": list - a list of 2-tuples containing the constants in
-    the equation and their exponents. These should both be string values.
-
-    "additional_values": list - a list of variable names that can be used to
-    derive a subset of the variables in the "default_fiducial_values", i.e.,
-    if the equation requires the "rotationfrequency" then this could contain
-    "rotationperiod", which can instead be used to derive the rotation
-    frequency. The variable parameter names must be consistent with the names
-    in the :var:`~cweqgen.equations.ALLOWED_VALUES` dictionary.
-
-    "converters": dict - a dictionary of coversion functions to convert the
-    additional values into the required values.
-
-    The current equations that are defined are:
-
-    "h0": the gravitational-wave amplitude for a signal emitted from the l=m=2
-    mass quadrupole mode.
-
+    This function generates a class holding a requested equation.
     """
 
-    equation_info = {
-        "h0": {
-            "default_fiducial_values": {
-                "ellipticity": (1e-6, "1"),
-                "momentofinertia": (1e38 * u.Unit("kg m^2"), "1"),
-                "rotationfrequency": (100 * u.Hz, "2"),
-                "distance": (1 * u.kpc, "-1"),
-            },
-            "constants": [
-                ("16", "1"),
-                ("pi", "2"),
-                ("G", "1"),
-                ("c", "-4"),
-            ],
-            "additional_values": ["gwfrequency", "rotationperiod"],
-            "converters": {
-                "rotationfrequency": convert_to_rotation_frequency,
-            },
-        },
-        "h0spindown": {
-            "default_fiducial_values": {
-                "momentofinertia": (1e38 * u.Unit("kg m^2"), "1/2"),
-                "rotationfrequency": (100 * u.Hz, "-1/2"),
-                "rotationfdot": (-1e-11 * u.Hz / u.s, "1/2"),
-                "distance": (1 * u.kpc, "-1"),
-            },
-            "constants": [
-                ("5", "1/2"),
-                ("2", "-1/2"),
-                ("G", "1/2"),
-                ("c", "-3/2"),
-            ],
-            "additional_values": [
-                "gwfrequency",
-                "rotationperiod",
-                "gwfdot",
-                "rotationpdot",
-            ],
-            "converters": {
-                "rotationfrequency": convert_to_rotation_frequency,
-                "rotationfdot": convert_to_rotation_fdot,
-            },
-        },
-        "ellipticityspindown": {
-            "default_fiducial_values": {
-                "momentofinertia": (1e38 * u.Unit("kg m^2"), "1/2"),
-                "rotationfrequency": (100 * u.Hz, "-1/2"),
-                "rotationfdot": (-1e-11 * u.Hz / u.s, "1/2"),
-            },
-            "constants": [
-                ("5", "1/2"),
-                ("512", "-1/2"),
-                ("pi", "-2"),
-                ("G", "-1/2"),
-                ("c", "5/2"),
-            ],
-            "additional_values": [
-                "gwfrequency",
-                "rotationperiod",
-                "gwfdot",
-                "rotationpdot",
-            ],
-            "converters": {
-                "rotationfrequency": convert_to_rotation_frequency,
-                "rotationfdot": convert_to_rotation_fdot,
-            },
-        },
-    }
-
-    if equation not in equation_info:
+    if equation not in EQN_DEFINITIONS:
         raise KeyError(f"Equation '{equation}' is not currently defined")
 
     # set values for required equation
-    eqinfo = equation_info[equation]
+    eqinfo = EQN_DEFINITIONS[equation]
     kwargs["equation"] = equation
     kwargs["default_fiducial_values"] = eqinfo["default_fiducial_values"]
     kwargs["constants"] = eqinfo["constants"]
@@ -608,6 +515,44 @@ def equations(equation, **kwargs):
                 return value.si.decompose()
             else:
                 return value
+
+        def rearrange(self, newval):
+            """
+            Rearrange equation so that the new values is on the left hand side.
+            """
+
+            if newval not in self.default_fiducial_values:
+                raise KeyError(f"{newval} is not allowed")
+
+            curval = self.evaluate()
+
+            exp = self.default_fiducial_values[key][1]
+
+            # check whether values need inverting
+            invert = True if exp[0] != "-" else False
+            
+            # check whether exponents need changing
+            if exp.strip("-") != "1":
+                es = exp.split("/")
+
+                if len(es) > 1:
+                    flip = (es[1], es[0].strip("-"))
+                else:
+                    flip = ("1", es[0])
+
+            newconstants = {}
+
+            for c in self.constants:
+                newexp = ""
+                if invert:
+                    newexp = c[1].strip("-") if c[1][0] == "-" else "-" + c[1]
+                
+                # do flipping
+                if 
+
+                newconstants[c] = (c[0], )
+
+            # create new _EquationBase with updated constants and default fiducial values
 
         def __str__(self):
             return self.equation()

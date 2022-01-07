@@ -75,4 +75,23 @@ archivePrefix = {arXiv},
       adsnote = {Provided by the SAO/NASA Astrophysics Data System}
 }"""
     },
+    "brakingindex": {  # this is just an example reference for the braking index (there will be earlier references!)
+        "short": "Lyne, A. G., Pritchard, R. S. and Smith, F.G., 1988, MNRAS, 233, 667",
+        "adsurl": "https://ui.adsabs.harvard.edu/abs/1988MNRAS.233..667L/abstract",
+        "eqno": None,
+        "bibtex": """\
+@ARTICLE{1988MNRAS.233..667L,
+       author = {{Lyne}, A.~G. and {Pritchard}, R.~S. and {Smith}, F.~G.},
+        title = "{Crab pulsar timing 1982-87.}",
+      journal = {\mnras},
+     keywords = {Crab Nebula, Ephemeris Time, Pulsars, Data Reduction, Least Squares Method, Astronomy},
+         year = 1988,
+        month = aug,
+       volume = {233},
+        pages = {667-676},
+          doi = {10.1093/mnras/233.3.667},
+       adsurl = {https://ui.adsabs.harvard.edu/abs/1988MNRAS.233..667L},
+      adsnote = {Provided by the SAO/NASA Astrophysics Data System}
+}"""
+    }
 }
