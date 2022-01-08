@@ -1,5 +1,7 @@
 import abc
 
+from fractions import Fraction
+
 from numpy import pi
 
 import astropy.units as u
@@ -167,10 +169,15 @@ def equations(equation, **kwargs):
     kwargs["additional_values"] = eqinfo["additional_values"]
     kwargs["converters"] = eqinfo["converters"]
 
+    kwargs["latex_string"] = ALLOWED_VALUES[equation]["latex_string"]
+    kwargs["description"] =  ALLOWED_VALUES[equation]["value"]
+
     class _EquationBase:
         __metaclass__ = abc.ABCMeta
 
         def __init__(self, **kwargs):
+            self.kwargs = kwargs.copy()  # store copy of initial kwargs
+            
             self.equation_name = kwargs.pop("equation")
             
             # dictionary to hold default fiducial values
@@ -186,12 +193,10 @@ def equations(equation, **kwargs):
             # a list of tuples containing equation constants
             self.constants = kwargs.pop("constants")
 
-            self.parse_kwargs(**kwargs)
+            self.latex_name = kwargs.pop("latex_string")  # lhs of equation
+            self.description = kwargs.pop("description")
 
-            self.latex_name = ALLOWED_VALUES[self.equation_name][
-                "latex_string"
-            ]  # lhs of equation
-            self.description = ALLOWED_VALUES[self.equation_name]["value"]
+            self.parse_kwargs(**kwargs)
 
             # get simple format reference
             self.reference_string = REFERENCES[self.equation_name]["short"]
@@ -262,7 +267,7 @@ def equations(equation, **kwargs):
             constant = 1.0
 
             for const in self.constants:
-                constant *= eval(str(const[0]) + "**(" + const[1] + ")")
+                constant *= eval(str(const[0])) ** Fraction(const[1])
 
             if isinstance(constant, Quantity):
                 return constant.si.decompose()
@@ -288,9 +293,9 @@ def equations(equation, **kwargs):
                     val = val.si
 
                 # get exponent
-                exp = self.default_fiducial_values[key][1]
+                exp = Fraction(self.default_fiducial_values[key][1])
 
-                fiducial *= abs(val) ** float(eval(exp))
+                fiducial *= abs(val) ** exp
 
             if isinstance(fiducial, Quantity):
                 return fiducial.si.decompose()
@@ -326,17 +331,17 @@ def equations(equation, **kwargs):
                     cv = const[0]
 
                 # exponent
-                exp = const[1].strip("-")
+                exp = abs(Fraction(const[1]))
 
-                if exp not in constfractions:
-                    constfractions[exp] = ["", ""]
+                if str(exp) not in constfractions:
+                    constfractions[str(exp)] = ["", ""]
 
-                if eval(const[1]) < 0:
+                if Fraction(const[1]) < 0:
                     # denominator value
-                    constfractions[exp][1] += " " + cv
+                    constfractions[str(exp)][1] += " " + cv
                 else:
                     # numerator value
-                    constfractions[exp][0] += " " + cv
+                    constfractions[str(exp)][0] += " " + cv
 
             # construct constant latex string
             conststr = ""
@@ -348,7 +353,7 @@ def equations(equation, **kwargs):
 
                 constdenstr = constfractions[exp][1]
 
-                lbrace, rbrace = ("", "") if exp == "1" else (r"\left(", r"\right)")
+                lbrace, rbrace = ("", "") if Fraction(exp) == 1 else (r"\left(", r"\right)")
                 expstr = "" if exp == "1" else (f"^{{{exp}}}")
 
                 if len(constdenstr) == 0:
@@ -373,17 +378,17 @@ def equations(equation, **kwargs):
                     varlatex = key
 
                 # get exponent
-                exp = self.default_fiducial_values[key][1].strip("-")
+                exp = abs(Fraction(self.default_fiducial_values[key][1]))
 
-                if exp not in varfractions:
-                    varfractions[exp] = ["", ""]
+                if str(exp) not in varfractions:
+                    varfractions[str(exp)] = ["", ""]
 
-                if eval(self.default_fiducial_values[key][1]) < 0:
+                if Fraction(self.default_fiducial_values[key][1]) < 0:
                     # denominator value
-                    varfractions[exp][1] += " " + varlatex
+                    varfractions[str(exp)][1] += " " + varlatex
                 else:
                     # numerator value
-                    varfractions[exp][0] += " " + varlatex
+                    varfractions[str(exp)][0] += " " + varlatex
 
             # construct variables latex string
             varstr = ""
@@ -395,11 +400,11 @@ def equations(equation, **kwargs):
 
                 vardenstr = varfractions[exp][1]
 
-                lbrace, rbrace = ("", "") if exp == "1" else (r"\left(", r"\right)")
-                expstr = "" if exp == "1" else (f"^{{{exp}}}")
+                lbrace, rbrace = ("", "") if Fraction(exp) == 1 or varnumstr.split() == 1 else (r"\left(", r"\right)")
+                expstr = "" if Fraction(exp) == 1 else (f"^{{{exp}}}")
 
                 if len(vardenstr) == 0:
-                    varstr += f"{varnumstr}{expstr}"
+                    varstr += f"{lbrace}{{{varnumstr}}}{rbrace}{expstr}"
                 else:
                     varstr += (
                         rf"{lbrace}\frac{{{varnumstr}}}{{{vardenstr}}}{rbrace}{expstr}"
@@ -465,7 +470,8 @@ def equations(equation, **kwargs):
                     varlatex = key
 
                 # get exponent
-                exp = self.default_fiducial_values[key][1]
+                #exp = self.default_fiducial_values[key][1]
+                exp = Fraction(self.default_fiducial_values[key][1])
 
                 # get value
                 if key in self.values:
@@ -474,7 +480,7 @@ def equations(equation, **kwargs):
                 else:
                     val = Quantity(self.default_fiducial_values[key][0])
 
-                if eval(exp) < 0:
+                if exp < 0:
                     numerator = val.to_string(precision=(dp + 1), format="latex").replace(
                         "$", ""
                     )
@@ -485,8 +491,8 @@ def equations(equation, **kwargs):
                     )
                     numerator = varlatex
 
-                if eval(exp.strip("-")) != 1.0:
-                    expstr = "^{" + exp.strip("-") + "}"
+                if abs(exp) != 1:
+                    expstr = "^{" + str(abs(exp)) + "}"
                 else:
                     expstr = ""
 
@@ -516,43 +522,64 @@ def equations(equation, **kwargs):
             else:
                 return value
 
-        def rearrange(self, newval):
+        def rearrange(self, newval, fidval=None):
             """
             Rearrange equation so that the new values is on the left hand side.
+
+            Parameters
+            ----------
+            newval: str
+                The variable should be rearranged to the LHS of the equation.
+            fidval: float, Quantity
+                The value to use for the original LHS value. If not given this
+                will be based on the original fiducial values.
             """
 
             if newval not in self.default_fiducial_values:
                 raise KeyError(f"{newval} is not allowed")
 
-            curval = self.evaluate()
+            if fidval is None:
+                # use current fiducial values to get value of parameter being
+                # swapped from LHS
+                curval = self.evaluate()
+            else:
+                curval = fidval
 
-            exp = self.default_fiducial_values[key][1]
+            exp = Fraction(self.default_fiducial_values[newval][1])
 
             # check whether values need inverting
-            invert = True if exp[0] != "-" else False
-            
+            invert = -1 if exp > 0 else 1
+
             # check whether exponents need changing
-            if exp.strip("-") != "1":
-                es = exp.split("/")
+            flipfrac = 1 / exp if abs(exp) != 1 else 1
 
-                if len(es) > 1:
-                    flip = (es[1], es[0].strip("-"))
-                else:
-                    flip = ("1", es[0])
+            # set new fiducial values
+            newkwargs = self.kwargs.copy()
 
-            newconstants = {}
+            # set new constants
+            newconstants = newkwargs.pop("constants")
+            for i, c in enumerate(newconstants):
+                exp = Fraction(c[1]) * invert * flipfrac
+                newconstants[i] = (c[0], str(exp))
 
-            for c in self.constants:
-                newexp = ""
-                if invert:
-                    newexp = c[1].strip("-") if c[1][0] == "-" else "-" + c[1]
-                
-                # do flipping
-                if 
+            newfiducial = newkwargs.pop("default_fiducial_values")
+            newfiducial.pop(newval)
 
-                newconstants[c] = (c[0], )
+            for val in newfiducial:
+                exp = Fraction(newfiducial[val][1]) * invert * flipfrac
+                newfiducial[val] = (newfiducial[val][0], str(exp))
+
+            # add in current LHS value
+            newfiducial[self.equation_name] = (curval, str(-1 * invert * flipfrac))
+
+            newkwargs["default_fiducial_values"] = newfiducial
+            newkwargs["constants"] = newconstants
+
+            newkwargs["latex_string"] = ALLOWED_VALUES[newval]["latex_string"]
+            newkwargs["description"] =  ALLOWED_VALUES[newval]["value"]
 
             # create new _EquationBase with updated constants and default fiducial values
+            return _EquationBase(**newkwargs)
 
         def __str__(self):
             return self.equation()
