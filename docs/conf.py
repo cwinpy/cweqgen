@@ -57,7 +57,6 @@ templates_path = ["_templates"]
 #
 source_suffix = {
     ".rst": "restructuredtext",
-    ".txt": "restructuredtext",
 }
 
 # The master toctree document.
@@ -261,11 +260,30 @@ The generated equation ({0} [{1}]_) is:
 """.format(eqno, i + 1, eq.equation())
 
         eqstr += """
-To generate the equation as calculated at particular values, the additional
-parameters to pass to :func:`~cweqgen.equations.equations` are given in the
-docstring::
+The fiducial values defined for this equation are:
 
+.. math::
+
+    {}
+""".format(eq.fiducial_equation())
+
+        eqstr += """
+.. note::
+
+    These fiducial values are just those defined within this package and may not be representative
+    of fiducial values used elsewhere in the literature.
 """
+
+        eqstr += """
+To generate the equation as calculated at particular values, the
+:func:`~cweqgen.equations.equations` can be used as
+
+.. py:function:: equation("{0}", {1})
+    :noindex:
+""".format(
+    eq.equation_name,
+    ", ".join(["{}={}".format(fid, str(val[0])) for fid, val in eq.default_fiducial_values.items()])
+)
 
         # add doc string lines
         for line in eq.__doc__.split("\n"):
@@ -279,5 +297,9 @@ docstring::
 
     with open(docfile, "w") as fp:
         fp.write(doccontents + references)
+
+    # write out example docstring
+    with open("docstringexample.txt", "w") as fp:
+        fp.write(EQN_DEFINITIONS["h0"]["docstring"])
 
 generate()

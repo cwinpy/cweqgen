@@ -1,5 +1,6 @@
 import abc
 
+from copy import deepcopy
 from fractions import Fraction
 
 from numpy import pi
@@ -10,147 +11,7 @@ from astropy.constants import G, c
 
 from matplotlib import pyplot as plt
 
-from .definitions import EQN_DEFINITIONS
-from .docstrings import DOCSTRINGS
-from .reference import REFERENCES
-
-
-#: allowed variables for equations
-ALLOWED_VALUES = {
-    "h0": {
-        "value": "Gravitational wave amplitude",
-        "latex_string": r"h_0",
-        "aliases": ["h0", "h_0", "$h_0$"],
-        "units": None,
-        "sign": ">= 0",
-    },
-    "h0spindown": {
-        "value": "Gravitational wave amplitude spin-down limit",
-        "latex_string": r"h_0^{\rm sd}",
-        "aliases": ["h0spindown", "h0sd", "h_0sd", "h_0^{sd}"],
-        "units": None,
-        "sign": ">= 0",
-    },
-    "ellipticity": {
-        "value": "Neutron star ellipticity",
-        "latex_string": r"\varepsilon",
-        "aliases": [
-            "ellipticity",
-            "ell",
-            "eps",
-            "epsilon",
-            "$\epsilon$",
-            "$\varepsilon$",
-        ],
-        "units": None,
-        "sign": ">= 0",
-    },
-    "ellipticityspindown": {
-        "value": "Spin-down limit for neutron star ellipticity",
-        "latex_string": r"\varepsilon^{\rm sd}",
-        "aliases": ["ellipticityspindown", "ellsd", "epssd", "epsilonsd"],
-        "units": None,
-        "sign": ">= 0",
-    },
-    "massquadrupole": {
-        "value": "Mass quadrupole moment (l=m=2)",
-        "latex_string": r"Q_{22}",
-        "aliases": ["massquadrupole", "q22", "$q_{22}"],
-        "units": "kg m^2",
-        "sign": ">= 0",
-    },
-    "massquadrupolespindown": {
-        "value": "Spin-down limit for the mass quadrupole moment (l=m=2)",
-        "latex_string": r"Q_{22}^{\rm sd}",
-        "aliases": ["massquadrupolespindown", "q22sd"],
-        "units": "kg m^3",
-        "sign": ">= 0",
-    },
-    "rotationfrequency": {
-        "value": "Source rotational frequency",
-        "latex_string": r"f_{\rm rot}",
-        "aliases": [
-            "rotationfrequency",
-            "frot",
-            "spinfrequency",
-            "fspin",
-            "f0rot",
-            "f0spin",
-        ],
-        "units": "Hz",
-        "sign": ">= 0",
-    },
-    "gwfrequency": {
-        "value": "Gravitational-wave frequency",
-        "latex_string": r"f_{\rm gw}",
-        "aliases": ["gwfrequency", "fgw", "f0gw"],
-        "units": "Hz",
-        "sign": ">= 0",
-    },
-    "rotationperiod": {
-        "value": "Source rotational period",
-        "latex_string": r"P",
-        "aliases": ["rotationperiod", "prot", "p0rot"],
-        "units": "s",
-        "sign": ">= 0",
-    },
-    "rotationfdot": {
-        "value": "Source rotational frequency derivative",
-        "latex_string": r"\dot{f}_{\rm rot}",
-        "aliases": ["rotationfdot", "frotdot", "f1rot", "f1spin"],
-        "units": "Hz / s",
-        "sign": None,
-    },
-    "gwfdot": {
-        "value": "Gravitational-wave frequency derivative",
-        "latex_string": r"\dot{f}_{\rm gw}",
-        "aliases": ["gwfdot", "fdotgw", "f1gw"],
-        "units": "Hz / s",
-        "sign": None,
-    },
-    "rotationpdot": {
-        "value": "Source rotational period derivative",
-        "latex_string": r"\dot{P}",
-        "aliases": ["pdot", "p0dot", "rotationpdot"],
-        "units": "s / s",
-        "sign": None,
-    },
-    "rotationfddot": {
-        "value": "Source rotational frequency second derivative",
-        "latex_string": r"\ddot{f}_{\rm rot}",
-        "aliases": ["rotationfddot", "frotddot", "f2rot", "f2spin"],
-        "units": "Hz / s / s",
-        "sign": None,
-    },
-    "gwfdot": {
-        "value": "Gravitational-wave second frequency derivative",
-        "latex_string": r"\ddot{f}_{\rm gw}",
-        "aliases": ["gwfddot", "fddotgw", "f2gw"],
-        "units": "Hz / s / s",
-        "sign": None,
-    },
-    "momentofinertia": {
-        "value": "Principle moment of inertia about the rotation axis",
-        "latex_string": r"I_{zz}",
-        "aliases": ["momentofinertia", "izz", "i38"],
-        "units": "kg m^2",
-        "sign": ">= 0",
-    },
-    "distance": {
-        "value": "Distance to the source",
-        "latex_string": "d",
-        "aliases": ["distance", "d", "r"],
-        "units": "kpc",
-        "sign": ">= 0",
-    },
-    "brakingindex": {
-        "value": "The braking index of a pulsar",
-        "latex_string": "n",
-        "aliases": ["brakingindex", "n", "$n$"],
-        "units": None,
-        "sign": None,
-    }
-}
+from .definitions import ALLOWED_VARIABLES, EQN_DEFINITIONS
 
 
 def equations(equation, **kwargs):
@@ -165,50 +26,68 @@ def equations(equation, **kwargs):
     eqinfo = EQN_DEFINITIONS[equation]
     kwargs["equation"] = equation
     kwargs["default_fiducial_values"] = eqinfo["default_fiducial_values"]
-    kwargs["constants"] = eqinfo["constants"]
-    kwargs["additional_values"] = eqinfo["additional_values"]
-    kwargs["converters"] = eqinfo["converters"]
 
-    kwargs["latex_string"] = ALLOWED_VALUES[equation]["latex_string"]
-    kwargs["description"] =  ALLOWED_VALUES[equation]["value"]
+    kwargs["constants"] = eqinfo.get("constants", [])
+    kwargs["additional_values"] = eqinfo.get("additional_values", [])
+    kwargs["converters"] = eqinfo.get("converters", {})
+
+    # reference information
+    try:
+        kwargs["reference_string"] = eqinfo["reference"].get("short", None)
+        kwargs["reference_eqno"] = eqinfo["reference"].get("eqno", None)
+        kwargs["reference_adsurl"] = eqinfo["reference"].get("adsurl", None)
+        kwargs["reference_bibtex"] = eqinfo["reference"].get("bibtex", None)
+    except KeyError:
+        # no references given
+        pass
+
+    kwargs["latex_string"] = eqinfo["latex_string"]
+    kwargs["description"] = eqinfo["description"]
+
+    kwargs["rhs_latex_strings"] = {}
+    for key in kwargs["default_fiducial_values"]:
+        kwargs["rhs_latex_strings"][key] = ALLOWED_VARIABLES[key]["latex_string"] if key in ALLOWED_VARIABLES else key
 
     class _EquationBase:
         __metaclass__ = abc.ABCMeta
 
         def __init__(self, **kwargs):
-            self.kwargs = kwargs.copy()  # store copy of initial kwargs
-            
+            self.kwargs = deepcopy(kwargs)  # store copy of initial kwargs
+
             self.equation_name = kwargs.pop("equation")
-            
+
             # dictionary to hold default fiducial values
             self.default_fiducial_values = kwargs.pop("default_fiducial_values")
 
             # list containing additional keyword values that can be used
-            self.additional_values = kwargs.pop("additional_values")
+            self.additional_values = kwargs.pop("additional_values", [])
 
             # dictionary of functions to convert from additional values into
             # required values (keyed on the required values)
-            self.converters = kwargs.pop("converters")
+            self.converters = kwargs.pop("converters", {})
 
             # a list of tuples containing equation constants
-            self.constants = kwargs.pop("constants")
+            self.constants = kwargs.pop("constants", [])
 
             self.latex_name = kwargs.pop("latex_string")  # lhs of equation
             self.description = kwargs.pop("description")
 
+            # LaTeX strings for RHS of equation
+            self.rhs_latex_strings = kwargs.pop("rhs_latex_strings")
+
             self.parse_kwargs(**kwargs)
 
             # get simple format reference
-            self.reference_string = REFERENCES[self.equation_name]["short"]
+            self.reference_string = kwargs.pop("reference_string", None)
 
             # equation number in reference
-            self.reference_eqno = REFERENCES[self.equation_name]["eqno"]
+            self.reference_eqno = kwargs.pop("reference_eqno", None)
 
             # URL of reference in ADS
-            self.reference_adsurl = REFERENCES[self.equation_name]["adsurl"]
+            self.reference_adsurl = kwargs.pop("adsurl", None)
 
             # BibTeX for reference (from ADS)
-            self.reference_bibtex = REFERENCES[self.equation_name]["bibtex"]
+            self.reference_bibtex = kwargs.pop("bibtex", None)
 
         def parse_kwargs(self, **kwargs):
             """
@@ -217,35 +96,43 @@ def equations(equation, **kwargs):
 
             self.values = {}
 
-            for key in list(self.default_fiducial_values.keys()) + self.additional_values:
+            for key in (
+                list(self.default_fiducial_values.keys()) + self.additional_values
+            ):
                 # check aliases
-                for alias in ALLOWED_VALUES[key]["aliases"]:
+                if key in ALLOWED_VARIABLES:
+                    aliases = ALLOWED_VARIABLES[key]["aliases"]
+                else:
+                    aliases = [key]
+
+                for alias in aliases:
                     if alias in kwargs:
                         value = kwargs[alias]
 
                         # check value has compatible units
-                        if (
-                            not isinstance(value, Quantity)
-                            and ALLOWED_VALUES[key]["units"] is not None
-                        ):
-                            value *= u.Unit(ALLOWED_VALUES[key]["units"])
-                        elif (
-                            isinstance(value, Quantity)
-                            and ALLOWED_VALUES[key]["units"] is not None
-                        ):
-                            try:
-                                _ = value.to(ALLOWED_VALUES[key]["units"])
-                            except (u.UnitConversionError, ValueError) as e:
-                                raise IOError(
-                                    f"{ALLOWED_VALUES[key]['value']} units are not compatible:\n{e}"
-                                )
+                        if key in ALLOWED_VARIABLES:
+                            if (
+                                not isinstance(value, Quantity)
+                                and ALLOWED_VARIABLES[key]["units"] is not None
+                            ):
+                                value *= u.Unit(ALLOWED_VARIABLES[key]["units"])
+                            elif (
+                                isinstance(value, Quantity)
+                                and ALLOWED_VARIABLES[key]["units"] is not None
+                            ):
+                                try:
+                                    _ = value.to(ALLOWED_VARIABLES[key]["units"])
+                                except (u.UnitConversionError, ValueError) as e:
+                                    raise IOError(
+                                        f"{ALLOWED_VARIABLES[key]['description']} units are not compatible:\n{e}"
+                                    )
 
-                        # check value has correct sign
-                        if ALLOWED_VALUES[key]["sign"] is not None:
-                            if not eval(str(value.value) + ALLOWED_VALUES[key]["sign"]):
-                                raise ValueError(
-                                    f"{ALLOWED_VALUES[key]['value']} does not have the correct sign"
-                                )
+                            # check value has correct sign
+                            if ALLOWED_VARIABLES[key]["sign"] is not None:
+                                if not eval(str(value.value) + ALLOWED_VARIABLES[key]["sign"]):
+                                    raise ValueError(
+                                        f"{ALLOWED_VARIABLES[key]['description']} does not have the correct sign"
+                                    )
 
                         self.values[key] = value
                         break
@@ -353,15 +240,15 @@ def equations(equation, **kwargs):
 
                 constdenstr = constfractions[exp][1]
 
-                lbrace, rbrace = ("", "") if Fraction(exp) == 1 else (r"\left(", r"\right)")
+                lbrace, rbrace = (
+                    ("", "") if Fraction(exp) == 1 else (r"\left(", r"\right)")
+                )
                 expstr = "" if exp == "1" else (f"^{{{exp}}}")
 
                 if len(constdenstr) == 0:
                     conststr += f"{constnumstr}{expstr}"
                 else:
-                    conststr += (
-                        rf"{lbrace}\frac{{{constnumstr}}}{{{constdenstr}}}{rbrace}{expstr}"
-                    )
+                    conststr += rf"{lbrace}\frac{{{constnumstr}}}{{{constdenstr}}}{rbrace}{expstr}"
 
             latex_equation += conststr
 
@@ -372,10 +259,7 @@ def equations(equation, **kwargs):
             varfractions = {}
 
             for key in self.default_fiducial_values:
-                if key in ALLOWED_VALUES:
-                    varlatex = ALLOWED_VALUES[key]["latex_string"]
-                else:
-                    varlatex = key
+                varlatex = self.rhs_latex_strings[key]
 
                 # get exponent
                 exp = abs(Fraction(self.default_fiducial_values[key][1]))
@@ -400,7 +284,11 @@ def equations(equation, **kwargs):
 
                 vardenstr = varfractions[exp][1]
 
-                lbrace, rbrace = ("", "") if Fraction(exp) == 1 or varnumstr.split() == 1 else (r"\left(", r"\right)")
+                lbrace, rbrace = (
+                    ("", "")
+                    if Fraction(exp) == 1 or varnumstr.split() == 1
+                    else (r"\left(", r"\right)")
+                )
                 expstr = "" if Fraction(exp) == 1 else (f"^{{{exp}}}")
 
                 if len(vardenstr) == 0:
@@ -451,9 +339,9 @@ def equations(equation, **kwargs):
                 # convert into Quantity
                 coeff = Quantity(coeff)
 
-            latex_equation += coeff.to_string(precision=(dp + 1), format="latex").replace(
-                "$", ""
-            )
+            latex_equation += coeff.to_string(
+                precision=(dp + 1), format="latex"
+            ).replace("$", "")
 
             if brackets not in ["()", "{}", "[]", None]:
                 raise ValueError(f"Bracket type {brackets} is not recognised")
@@ -464,13 +352,10 @@ def equations(equation, **kwargs):
             fiducial = ""
 
             for key in self.default_fiducial_values:
-                if key in ALLOWED_VALUES:
-                    varlatex = ALLOWED_VALUES[key]["latex_string"]
-                else:
-                    varlatex = key
+                varlatex = self.rhs_latex_strings[key]
 
                 # get exponent
-                #exp = self.default_fiducial_values[key][1]
+                # exp = self.default_fiducial_values[key][1]
                 exp = Fraction(self.default_fiducial_values[key][1])
 
                 # get value
@@ -481,14 +366,14 @@ def equations(equation, **kwargs):
                     val = Quantity(self.default_fiducial_values[key][0])
 
                 if exp < 0:
-                    numerator = val.to_string(precision=(dp + 1), format="latex").replace(
-                        "$", ""
-                    )
+                    numerator = val.to_string(
+                        precision=(dp + 1), format="latex"
+                    ).replace("$", "")
                     denominator = varlatex
                 else:
-                    denominator = val.to_string(precision=(dp + 1), format="latex").replace(
-                        "$", ""
-                    )
+                    denominator = val.to_string(
+                        precision=(dp + 1), format="latex"
+                    ).replace("$", "")
                     numerator = varlatex
 
                 if abs(exp) != 1:
@@ -551,10 +436,10 @@ def equations(equation, **kwargs):
             invert = -1 if exp > 0 else 1
 
             # check whether exponents need changing
-            flipfrac = 1 / exp if abs(exp) != 1 else 1
+            flipfrac = 1 / abs(exp) if abs(exp) != 1 else 1
 
             # set new fiducial values
-            newkwargs = self.kwargs.copy()
+            newkwargs = deepcopy(self.kwargs)
 
             # set new constants
             newconstants = newkwargs.pop("constants")
@@ -575,8 +460,11 @@ def equations(equation, **kwargs):
             newkwargs["default_fiducial_values"] = newfiducial
             newkwargs["constants"] = newconstants
 
-            newkwargs["latex_string"] = ALLOWED_VALUES[newval]["latex_string"]
-            newkwargs["description"] =  ALLOWED_VALUES[newval]["value"]
+            newkwargs["latex_string"] = ALLOWED_VARIABLES[newval]["latex_string"]
+            newkwargs["description"] = ALLOWED_VARIABLES[newval]["description"]
+
+            newkwargs["rhs_latex_strings"].pop(newval)
+            newkwargs["rhs_latex_strings"][self.equation_name] = self.latex_name
 
             # create new _EquationBase with updated constants and default fiducial values
             return _EquationBase(**newkwargs)
@@ -585,7 +473,10 @@ def equations(equation, **kwargs):
             return self.equation()
 
     # update the class docstring
-    _EquationBase.__doc__ = DOCSTRINGS[equation]
+    try:
+        _EquationBase.__doc__ = eqinfo["docstring"]
+    except KeyError:
+        pass
 
     # return the equation class
     return _EquationBase(**kwargs)
@@ -618,7 +509,7 @@ class EquationLaTeXString:
 
 
 class EquationLaTeXToImage:
-    def __init__(self, latexstring,  dpi=200):
+    def __init__(self, latexstring, dpi=200):
         """
         Class to hold a LaTeX equation string and covert it to an image for
         display in a Jupyter notebook.
@@ -634,26 +525,26 @@ class EquationLaTeXToImage:
         self.text = latexstring
 
         self.dpi = dpi
-        self.fig, ax = plt.subplots(1)
-        
+        self.fig, self.ax = plt.subplots(1)
+
         try:
-            t = ax.text(
+            t = self.ax.text(
                 0.05,
                 0.5,
                 "$" + self.text + "$",
                 usetex=True,
             )
         except RuntimeError:
-            t = ax.text(
+            t = self.ax.text(
                 0.0,
                 0.5,
                 "$" + self.text + "$",
             )
-        ax.axis("off")
+        self.ax.axis("off")
 
         # crop figure to tight around the text
         bb = t.get_window_extent(renderer=self.fig.canvas.get_renderer())
-        transf = ax.transData.inverted()
+        transf = self.ax.transData.inverted()
         bb_datacoords = bb.transformed(transf)
 
         rect = bb_datacoords.get_points().flatten()
