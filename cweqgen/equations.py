@@ -12,9 +12,26 @@ from astropy.constants import G, c
 
 from matplotlib import pyplot as plt
 
-from sympy import Eq, lambdify, latex, powsimp, symbols, sympify
+from sympy import (
+    Eq,
+    lambdify,
+    latex,
+    Mul,
+    Pow,
+    powsimp,
+    solve,
+    Symbol,
+    symbols,
+    sympify,
+)
 
 from .definitions import ALLOWED_VARIABLES, EQN_DEFINITIONS
+
+
+CONSTANTS = {"G": G, "c": c, "pi": pi}
+
+def constfunc(name):
+    return CONSTANTS[name]
 
 
 def equations(equation, **kwargs):
@@ -29,8 +46,7 @@ def equations(equation, **kwargs):
     eqinfo = EQN_DEFINITIONS[equation]
     kwargs["equation"] = equation
     kwargs["default_fiducial_values"] = eqinfo["default_fiducial_values"]
-
-    kwargs["constants"] = eqinfo.get("constants", [])
+    kwargs["parts"] = eqinfo["parts"]
     kwargs["additional_values"] = eqinfo.get("additional_values", [])
     kwargs["converters"] = eqinfo.get("converters", {})
 
@@ -49,7 +65,9 @@ def equations(equation, **kwargs):
 
     kwargs["rhs_latex_strings"] = {}
     for key in kwargs["default_fiducial_values"]:
-        kwargs["rhs_latex_strings"][key] = ALLOWED_VARIABLES[key]["latex_string"] if key in ALLOWED_VARIABLES else key
+        kwargs["rhs_latex_strings"][key] = (
+            ALLOWED_VARIABLES[key]["latex_string"] if key in ALLOWED_VARIABLES else key
+        )
 
     class _EquationBase:
         __metaclass__ = abc.ABCMeta
@@ -58,6 +76,9 @@ def equations(equation, **kwargs):
             self.kwargs = deepcopy(kwargs)  # store copy of initial kwargs
 
             self.equation_name = kwargs.pop("equation")
+
+            # a list of tuples containing parts of equation
+            self.parts = kwargs.pop("parts")
 
             # dictionary to hold default fiducial values
             self.default_fiducial_values = kwargs.pop("default_fiducial_values")
@@ -68,9 +89,6 @@ def equations(equation, **kwargs):
             # dictionary of functions to convert from additional values into
             # required values (keyed on the required values)
             self.converters = kwargs.pop("converters", {})
-
-            # a list of tuples containing equation constants
-            self.constants = kwargs.pop("constants", [])
 
             self.latex_name = kwargs.pop("latex_string")  # lhs of equation
             self.description = kwargs.pop("description")
@@ -102,43 +120,9 @@ def equations(equation, **kwargs):
             for key in (
                 list(self.default_fiducial_values.keys()) + self.additional_values
             ):
-                # check aliases
-                if key in ALLOWED_VARIABLES:
-                    aliases = ALLOWED_VARIABLES[key]["aliases"]
-                else:
-                    aliases = [key]
-
-                for alias in aliases:
-                    if alias in kwargs:
-                        value = kwargs[alias]
-
-                        # check value has compatible units
-                        if key in ALLOWED_VARIABLES:
-                            if (
-                                not isinstance(value, Quantity)
-                                and ALLOWED_VARIABLES[key]["units"] is not None
-                            ):
-                                value *= u.Unit(ALLOWED_VARIABLES[key]["units"])
-                            elif (
-                                isinstance(value, Quantity)
-                                and ALLOWED_VARIABLES[key]["units"] is not None
-                            ):
-                                try:
-                                    _ = value.to(ALLOWED_VARIABLES[key]["units"])
-                                except (u.UnitConversionError, ValueError) as e:
-                                    raise IOError(
-                                        f"{ALLOWED_VARIABLES[key]['description']} units are not compatible:\n{e}"
-                                    )
-
-                            # check value has correct sign
-                            if ALLOWED_VARIABLES[key]["sign"] is not None:
-                                if not eval(str(value.value) + ALLOWED_VARIABLES[key]["sign"]):
-                                    raise ValueError(
-                                        f"{ALLOWED_VARIABLES[key]['description']} does not have the correct sign"
-                                    )
-
-                        self.values[key] = value
-                        break
+                value = self.check_for_alias(key, **kwargs)
+                if value is not None:
+                    self.values[key] = value
 
             # perform conversions if required
             for key in self.converters:
@@ -148,21 +132,52 @@ def equations(equation, **kwargs):
                     except ValueError:
                         pass
 
-        def calculate_constant(self):
+        @staticmethod
+        def check_for_alias(key, **kwargs):
             """
-            Calculate and return the constant coefficient factor in the equation in
-            SI units (if it has dimensions).
+            Check whether any alias of the key is given in the keyword arguments.
             """
 
-            constant = 1.0
-
-            for const in self.constants:
-                constant *= eval(str(const[0])) ** Fraction(const[1])
-
-            if isinstance(constant, Quantity):
-                return constant.si.decompose()
+            # check aliases
+            if key in ALLOWED_VARIABLES:
+                aliases = ALLOWED_VARIABLES[key]["aliases"]
             else:
-                return constant
+                aliases = [key]
+
+            for alias in aliases:
+                if alias in kwargs:
+                    value = kwargs[alias]
+
+                    # check value has compatible units
+                    if key in ALLOWED_VARIABLES:
+                        if (
+                            not isinstance(value, Quantity)
+                            and ALLOWED_VARIABLES[key]["units"] is not None
+                        ):
+                            value *= u.Unit(ALLOWED_VARIABLES[key]["units"])
+                        elif (
+                            isinstance(value, Quantity)
+                            and ALLOWED_VARIABLES[key]["units"] is not None
+                        ):
+                            try:
+                                _ = value.to(ALLOWED_VARIABLES[key]["units"])
+                            except (u.UnitConversionError, ValueError) as e:
+                                raise IOError(
+                                    f"{ALLOWED_VARIABLES[key]['description']} units are not compatible:\n{e}"
+                                )
+
+                        # check value has correct sign
+                        if ALLOWED_VARIABLES[key]["sign"] is not None:
+                            if not eval(
+                                str(value.value) + ALLOWED_VARIABLES[key]["sign"]
+                            ):
+                                raise ValueError(
+                                    f"{ALLOWED_VARIABLES[key]['description']} does not have the correct sign"
+                                )
+
+                    return value
+
+            return None
 
         def calculate_fiducial(self, **kwargs):
             """
@@ -181,17 +196,19 @@ def equations(equation, **kwargs):
             funcargs = []
             arglens = []  # store lengths of arguments
 
-            for key in self.default_fiducial_values:
-                if key in kwargs:
+            for key, arg in zip(self.var_names, self.sympy_var.args):
+                value = self.check_for_alias(key, **kwargs)
+
+                if value is not None:
                     # use keyword value
-                    val = kwargs[key]
+                    val = value
                 elif key in self.values:
                     # use provided value
                     val = self.values[key]
                 else:
-                    val = self.default_fiducial_values[key][0]
+                    val = self.default_fiducial_values[key]
 
-                funcargs.append(Quantity(val).si.value)
+                funcargs.append(np.abs(Quantity(val).si.value))
 
                 try:
                     arglens.append(len(funcargs[-1]))
@@ -203,7 +220,11 @@ def equations(equation, **kwargs):
                     units = val.si.unit
 
                     # get exponent
-                    exp = Fraction(self.default_fiducial_values[key][1])
+                    exp = (
+                        1
+                        if not isinstance(arg, Pow)
+                        else Fraction(*arg.exp.as_numer_denom())
+                    )
 
                     fiducialunits *= units ** exp
 
@@ -246,8 +267,9 @@ def equations(equation, **kwargs):
                 the equation definition values.
             """
 
-            seq_const = self.sympy_const
-            seq_var = self.sympy_var
+            # use powsimp to put values with common exponents together
+            seq_const = powsimp(self.sympy_const, force=True)
+            seq_var = powsimp(self.sympy_var, force=True)
 
             # set defaults
             symrep = {symbols(key): val for key, val in self.rhs_latex_strings.items()}
@@ -260,7 +282,10 @@ def equations(equation, **kwargs):
             mode = latexkwargs.pop("mode", "plain")
             delim = "$" if displaytype == "matplotlib" or mode == "inline" else ""
 
-            latex_equation_const = latex(seq_const, **latexkwargs)
+            if seq_const != 1:
+                latex_equation_const = latex(seq_const, **latexkwargs)
+            else:
+                latex_equation_const = ""
 
             latexkwargs["root_notation"] = False
             latexkwargs.setdefault("symbol_names", symrep)
@@ -327,19 +352,22 @@ def equations(equation, **kwargs):
 
             fiducial = ""
 
-            for key in self.default_fiducial_values:
+            for key, arg in zip(self.var_names, self.sympy_var.args):
                 varlatex = self.rhs_latex_strings[key]
 
                 # get exponent
-                # exp = self.default_fiducial_values[key][1]
-                exp = Fraction(self.default_fiducial_values[key][1])
+                exp = (
+                    1
+                    if not isinstance(arg, Pow)
+                    else Fraction(*arg.exp.as_numer_denom())
+                )
 
                 # get value
                 if key in self.values:
                     # use provided value
                     val = Quantity(self.values[key])
                 else:
-                    val = Quantity(self.default_fiducial_values[key][0])
+                    val = Quantity(self.default_fiducial_values[key])
 
                 if exp < 0:
                     numerator = val.to_string(
@@ -380,7 +408,7 @@ def equations(equation, **kwargs):
             be created over the space and the values returned on that mesh.
             """
 
-            const = self.calculate_constant()
+            const = self.constant
             fid = self.calculate_fiducial(**kwargs)
 
             value = const * fid
@@ -392,7 +420,7 @@ def equations(equation, **kwargs):
 
         def rearrange(self, newval, fidval=None):
             """
-            Rearrange equation so that the new values is on the left hand side.
+            Rearrange equation so that the new value is on the left hand side.
 
             Parameters
             ----------
@@ -401,9 +429,14 @@ def equations(equation, **kwargs):
             fidval: float, Quantity
                 The value to use for the original LHS value. If not given this
                 will be based on the original fiducial values.
+
+            Returns
+            -------
+            neweq: _EquationBase
+                Returns a new equation. The current equation is left unchanged.
             """
 
-            if newval not in self.default_fiducial_values:
+            if newval not in self.var_names:
                 raise KeyError(f"{newval} is not allowed")
 
             if fidval is None:
@@ -413,35 +446,18 @@ def equations(equation, **kwargs):
             else:
                 curval = fidval
 
-            exp = Fraction(self.default_fiducial_values[newval][1])
+            neweq = solve(self.sympy, symbols(newval))
 
-            # check whether values need inverting
-            invert = -1 if exp > 0 else 1
-
-            # check whether exponents need changing
-            flipfrac = 1 / abs(exp) if abs(exp) != 1 else 1
-
-            # set new fiducial values
             newkwargs = deepcopy(self.kwargs)
 
-            # set new constants
-            newconstants = newkwargs.pop("constants")
-            for i, c in enumerate(newconstants):
-                exp = Fraction(c[1]) * invert * flipfrac
-                newconstants[i] = (c[0], str(exp))
+            # set new equation parts
+            newkwargs["parts"] = self.generate_parts(neweq.rhs)
 
             newfiducial = newkwargs.pop("default_fiducial_values")
             newfiducial.pop(newval)
-
-            for val in newfiducial:
-                exp = Fraction(newfiducial[val][1]) * invert * flipfrac
-                newfiducial[val] = (newfiducial[val][0], str(exp))
-
-            # add in current LHS value
-            newfiducial[self.equation_name] = (curval, str(-1 * invert * flipfrac))
+            newfiducial[self.equation_name] = curval
 
             newkwargs["default_fiducial_values"] = newfiducial
-            newkwargs["constants"] = newconstants
 
             newkwargs["latex_string"] = ALLOWED_VARIABLES[newval]["latex_string"]
             newkwargs["description"] = ALLOWED_VARIABLES[newval]["description"]
@@ -450,6 +466,42 @@ def equations(equation, **kwargs):
             newkwargs["rhs_latex_strings"][self.equation_name] = self.latex_name
 
             # create new _EquationBase with updated constants and default fiducial values
+            return _EquationBase(**newkwargs)
+
+        def substitute(self, other):
+            """
+            Substitute another equation into the current equation.
+
+            Parameters
+            ----------
+            other: _EquationBase
+                The other equation to substitute into the current equation.
+
+            Returns
+            -------
+            neweq: _EquationBase
+                Returns a new equation. The current equation is left unchanged.
+            """
+
+            if not isinstance(other, _EquationBase):
+                raise TypeError("Other equation is not the right type")
+
+            try:
+                rhs = self.sympy.rhs
+                neweq = rhs.subs([(other.sympy.rhs, other.sympy.lhs)])
+            except Exception as e:
+                raise RuntimeError("Could not perform substitution")
+
+            newkwargs = deepcopy(self.kwargs)
+            newfiducial = newkwargs.pop("default_fiducial_values")
+            newfiducial.pop(other.equation_name)
+            newfiducial.update(other.default_fiducial_values)
+
+            newkwargs["rhs_latex_strings"].pop(other.equation_name)
+            newkwargs["rhs_latex_strings"].update(other.rhs_latex_strings)
+
+            newkwargs["parts"] = self.generate_parts(neweq)
+
             return _EquationBase(**newkwargs)
 
         def __str__(self):
@@ -463,13 +515,56 @@ def equations(equation, **kwargs):
             """
 
             if not hasattr(self, "_sympy_const"):
-                if len(self.constants) > 0:
-                    eqstr = "*".join([f"{c[0]}**({c[1]})" for c in self.constants])
-                    self._sympy_const = powsimp(sympify(eqstr), force=True)
-                else:
-                    self._sympy_const = None
+                self._sympy_const = 1
+                self._sympy_const_with_dummy = 1
+                self._sympy_const_dummy_order = []
 
-            return self._sympy_const 
+                for arg in self.sympy.rhs.args:
+                    if arg.is_constant():
+                        self._sympy_const *= arg
+                        self._sympy_const_with_dummy *= float(arg.evalf())
+                    else:
+                        if hasattr(arg, "name"):
+                            name = str(arg.name)
+                        elif hasattr(arg, "base"):
+                            name = str(arg.base)
+                        else:
+                            name = None
+
+                        if name in CONSTANTS:
+                            self._sympy_const_dummy_order.append(name)
+                            self._sympy_const_with_dummy *= arg.subs([(symbols(name), sympify(f"const({name})"))])
+                            self._sympy_const *= arg
+
+                # evaluate constant
+                if self._sympy_const != 1:
+                    constf = lambdify(
+                        [symbols(name) for name in self._sympy_const_dummy_order],
+                        self._sympy_const_with_dummy,
+                        modules=[{"const": constfunc}, "numpy"]
+                    )
+                    constant = constf(*self._sympy_const_dummy_order)
+
+                    if isinstance(constant, Quantity):
+                        self._constant = constant.si.decompose()
+                    else:
+                        self._constant = constant
+                else:
+                    self._constant = self._sympy_const
+
+            return self._sympy_const
+
+        @property
+        def constant(self):
+            """
+            Return the constant coefficient factor in the equation in SI units
+            (if it has dimensions).
+            """
+
+            if not hasattr(self, "_constant"):
+                _ = self.sympy_const
+
+            return self._constant
 
         @property
         def sympy_var(self):
@@ -479,11 +574,20 @@ def equations(equation, **kwargs):
             """
 
             if not hasattr(self, "_sympy_var"):
-                eqstr = "*".join(
-                    [f"{key}**({val[1]})" for key, val in self.default_fiducial_values.items()]
-                )
+                self._sympy_var = 1
+                self._var_names = []
+                for arg in self.sympy.rhs.args:
+                    if not arg.is_constant():
+                        if hasattr(arg, "name"):
+                            name = str(arg.name)
+                        elif hasattr(arg, "base"):
+                            name = str(arg.base)
+                        else:
+                            name = None
 
-                self._sympy_var = powsimp(sympify(eqstr), force=True)
+                        if name not in CONSTANTS:
+                            self._sympy_var *= arg
+                            self._var_names.append(name)
 
                 # lambda-ified version of function
                 self._sympy_var_func = lambdify(
@@ -493,6 +597,17 @@ def equations(equation, **kwargs):
                 )
 
             return self._sympy_var
+
+        @property
+        def var_names(self):
+            """
+            Get variable names from Sympy representation.
+            """
+
+            if not hasattr(self, "_var_names"):
+                _ = self.sympy_var
+
+            return self._var_names
 
         @property
         def sympy_var_func(self):
@@ -508,17 +623,32 @@ def equations(equation, **kwargs):
             :class:`sympy.core.relational.Equality`.
             """
 
-            if hasattr(self, "_sympy"):
-                return self._sympy
-            else:
-                const = self.sympy_const if self.sympy_const is not None else 1
-                var = self.sympy_var
-                self._sympy = Eq(
-                    symbols(self.equation_name),
-                    const * var
-                )
+            if not hasattr(self, "_sympy"):
+                eqstr = " * ".join([f"{c[0]}**({c[1]})" for c in self.parts])
+                sympeq = sympify(eqstr)
+                self._sympy = Eq(symbols(self.equation_name), sympeq)
 
-                return self._sympy
+            return self._sympy
+
+        @staticmethod
+        def generate_parts(eqn):
+            """
+            Generate a list of "parts" from a Sympy equation.
+            """
+
+            parts = []
+
+            for arg in eqn.args:
+                if isinstance(arg, Mul):
+                    parts.extend(_EquationBase.generate_parts(arg))
+                elif isinstance(arg, Pow):
+                    parts.append((str(arg.base), str(arg.exp)))
+                elif isinstance(arg, Symbol):
+                    parts.append((arg.name, "1"))
+                else:
+                    parts.append((str(arg), "1"))
+
+            return parts
 
     # update the class docstring
     try:

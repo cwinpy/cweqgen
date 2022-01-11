@@ -144,7 +144,11 @@ class EqDict(dict):
         except KeyError:
             raise KeyError("Equation dictionary must contain 'default_fiducial_values'")
 
-        self[key]["constants"] = subdict.get("constants", [])
+        try:
+            self[key]["parts"] = subdict["parts"]
+        except KeyError:
+            raise KeyError("Equation dictionary must contain 'parts'")
+
         self[key]["additional_values"] = subdict.get("additional_values", [])
         self[key]["converters"] = subdict.get("converters", {})
         
@@ -170,7 +174,7 @@ class EqDict(dict):
         """
 
         defaults = {
-            key: Quantity(item[0])._repr_latex_().replace("$", "")
+            key: Quantity(item)._repr_latex_().replace("$", "")
             for key, item in self[key]["default_fiducial_values"].items()
         }
 
@@ -186,16 +190,20 @@ EQN_DEFINITIONS["h0"] = {
     "description": "Gravitational wave amplitude",
     "latex_string": "h_0",
     "default_fiducial_values": {
-        "ellipticity": (1e-6, "1"),
-        "momentofinertia": (1e38 * u.Unit("kg m^2"), "1"),
-        "rotationfrequency": (100 * u.Hz, "2"),
-        "distance": (1 * u.kpc, "-1"),
+        "ellipticity": 1e-6,
+        "momentofinertia": 1e38 * u.Unit("kg m^2"),
+        "rotationfrequency": 100 * u.Hz,
+        "distance": 1 * u.kpc,
     },
-    "constants": [
+    "parts": [
         ("16", "1"),
         ("pi", "2"),
         ("G", "1"),
         ("c", "-4"),
+        ("ellipticity", "1"),
+        ("momentofinertia", "1"),
+        ("rotationfrequency", "2"),
+        ("distance", "-1"),
     ],
     "additional_values": ["gwfrequency", "rotationperiod"],
     "converters": {
@@ -244,15 +252,19 @@ EQN_DEFINITIONS["h0spindown"] = {
     "description": "Gravitational wave amplitude spin-down limit",
     "latex_string": r"h_0^{\rm sd}",
     "default_fiducial_values": {
-        "momentofinertia": (1e38 * u.Unit("kg m^2"), "1/2"),
-        "rotationfrequency": (100 * u.Hz, "-1/2"),
-        "rotationfdot": (-1e-11 * u.Hz / u.s, "1/2"),
-        "distance": (1 * u.kpc, "-1"),
+        "momentofinertia": 1e38 * u.Unit("kg m^2"),
+        "rotationfrequency": 100 * u.Hz,
+        "rotationfdot": -1e-11 * u.Hz / u.s,
+        "distance": 1 * u.kpc,
     },
-    "constants": [
+    "parts": [
         ("5/2", "1/2"),
         ("G", "1/2"),
         ("c", "-3/2"),
+        ("momentofinertia", "1/2"),
+        ("rotationfrequency", "-1/2"),
+        ("rotationfdot",  "1/2"),
+        ("distance", "-1"),
     ],
     "additional_values": [
         "gwfrequency",
@@ -307,15 +319,18 @@ EQN_DEFINITIONS["ellipticityspindown"] = {
     "description": "Spin-down limit for neutron star ellipticity",
     "latex_string": r"\varepsilon^{\rm sd}",
     "default_fiducial_values": {
-        "momentofinertia": (1e38 * u.Unit("kg m^2"), "1/2"),
-        "rotationfrequency": (100 * u.Hz, "-1/2"),
-        "rotationfdot": (-1e-11 * u.Hz / u.s, "1/2"),
+        "momentofinertia": 1e38 * u.Unit("kg m^2"),
+        "rotationfrequency": 100 * u.Hz,
+        "rotationfdot": -1e-11 * u.Hz / u.s,
     },
-    "constants": [
+    "parts": [
         ("5/512", "1/2"),
         ("pi", "-2"),
         ("G", "-1/2"),
         ("c", "5/2"),
+        ("momentofinertia", "1/2"),
+        ("rotationfrequency", "-1/2"),
+        ("rotationfdot", "1/2"),
     ],
     "additional_values": [
         "gwfrequency",
@@ -369,10 +384,15 @@ EQN_DEFINITIONS["brakingindex"] = {
     "description": "The braking index of a pulsar",
     "latex_string": "n",
     "default_fiducial_values": {
-        "rotationfrequency": (50 * u.Hz, "1"),
-        "rotationfddot": (1e-23 * u.Hz / (u.s ** 2), "1"),
-        "rotationfdot": (-1e-11 * u.Hz / u.s, "-2"),
+        "rotationfrequency": 50 * u.Hz,
+        "rotationfddot": 1e-23 * u.Hz / (u.s ** 2),
+        "rotationfdot": -1e-11 * u.Hz / u.s,
     },
+    "parts": [
+        ("rotationfrequency", "1"),
+        ("rotationfddot", "1"),
+        ("rotationfdot", "-2"),
+    ],
     "additional_values": [
         "gwfrequency",
         "rotationperiod",
@@ -414,4 +434,3 @@ given in :obj:`cweqgen.definitions.ALLOWED_VARIABLES`, can be used instead.
 :keyword float or ~astropy.units.quantity.Quantity rotationfddot: The second rotational frequency derivative. If given as a float units of Hz/s^2 are assumed. The default value is :math:`{rotationfddot}`.
 """,
 }
-

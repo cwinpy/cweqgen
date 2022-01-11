@@ -201,6 +201,7 @@ intersphinx_mapping = {
     "python": ("https://docs.python.org/3/", None),
     "numpy": ("https://numpy.org/doc/stable/", None),
     "astropy": ("https://docs.astropy.org/en/stable/", None),
+    "sympy": ("https://docs.sympy.org/latest/", None),
 }
 
 
@@ -235,6 +236,7 @@ References
 """
 
     for i, eqn in enumerate(EQN_DEFINITIONS):
+        print(eqn)
         eqstr = ""
         
         # create equation
@@ -282,7 +284,7 @@ To generate the equation as calculated at particular values, the
     :noindex:
 """.format(
     eq.equation_name,
-    ", ".join(["{}={}".format(fid, str(val[0])) for fid, val in eq.default_fiducial_values.items()])
+    ", ".join(["{}={}".format(fid, str(val)) for fid, val in eq.default_fiducial_values.items()])
 )
 
         # add doc string lines
