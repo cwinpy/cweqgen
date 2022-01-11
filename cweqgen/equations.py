@@ -30,6 +30,7 @@ from .definitions import ALLOWED_VARIABLES, EQN_DEFINITIONS
 
 CONSTANTS = {"G": G, "c": c, "pi": pi}
 
+
 def constfunc(name):
     return CONSTANTS[name]
 
@@ -533,7 +534,9 @@ def equations(equation, **kwargs):
 
                         if name in CONSTANTS:
                             self._sympy_const_dummy_order.append(name)
-                            self._sympy_const_with_dummy *= arg.subs([(symbols(name), sympify(f"const({name})"))])
+                            self._sympy_const_with_dummy *= arg.subs(
+                                [(symbols(name), sympify(f"const({name})"))]
+                            )
                             self._sympy_const *= arg
 
                 # evaluate constant
@@ -541,7 +544,7 @@ def equations(equation, **kwargs):
                     constf = lambdify(
                         [symbols(name) for name in self._sympy_const_dummy_order],
                         self._sympy_const_with_dummy,
-                        modules=[{"const": constfunc}, "numpy"]
+                        modules=[{"const": constfunc}, "numpy"],
                     )
                     constant = constf(*self._sympy_const_dummy_order)
 
