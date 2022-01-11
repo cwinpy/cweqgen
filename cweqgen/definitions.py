@@ -250,8 +250,7 @@ EQN_DEFINITIONS["h0spindown"] = {
         "distance": (1 * u.kpc, "-1"),
     },
     "constants": [
-        ("5", "1/2"),
-        ("2", "-1/2"),
+        ("5/2", "1/2"),
         ("G", "1/2"),
         ("c", "-3/2"),
     ],
@@ -313,8 +312,7 @@ EQN_DEFINITIONS["ellipticityspindown"] = {
         "rotationfdot": (-1e-11 * u.Hz / u.s, "1/2"),
     },
     "constants": [
-        ("5", "1/2"),
-        ("512", "-1/2"),
+        ("5/512", "1/2"),
         ("pi", "-2"),
         ("G", "-1/2"),
         ("c", "5/2"),

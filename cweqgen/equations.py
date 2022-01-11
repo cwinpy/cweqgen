@@ -3,6 +3,7 @@ import abc
 from copy import deepcopy
 from fractions import Fraction
 
+import numpy as np
 from numpy import pi
 
 import astropy.units as u
@@ -10,6 +11,8 @@ from astropy.units.quantity import Quantity
 from astropy.constants import G, c
 
 from matplotlib import pyplot as plt
+
+from sympy import Eq, lambdify, latex, powsimp, symbols, sympify
 
 from .definitions import ALLOWED_VARIABLES, EQN_DEFINITIONS
 
@@ -161,35 +164,69 @@ def equations(equation, **kwargs):
             else:
                 return constant
 
-        def calculate_fiducial(self):
+        def calculate_fiducial(self, **kwargs):
             """
             Calculate and return the product of the fiducial components of the
             equation (excluding the constants) in SI units.
+
+            Keyword arguments can be passed using the keys of the
+            :attr:`._EquationBase.default_fiducial_values` giving the values at
+            which to perform the calculation. Otherwise the default values, or
+            values set at initialisation are used. These can be 1d arrays,
+            where if more that one value is an array of then a mesh grid will
+            be created over the space and the values returned on that mesh.
             """
 
-            fiducial = 1.0
+            fiducialunits = 1.0
+            funcargs = []
+            arglens = []  # store lengths of arguments
 
             for key in self.default_fiducial_values:
-                if key in self.values:
+                if key in kwargs:
+                    # use keyword value
+                    val = kwargs[key]
+                elif key in self.values:
                     # use provided value
                     val = self.values[key]
                 else:
                     val = self.default_fiducial_values[key][0]
 
+                funcargs.append(Quantity(val).si.value)
+
+                try:
+                    arglens.append(len(funcargs[-1]))
+                except TypeError:
+                    arglens.append(1)
+
+                # get units
                 if isinstance(val, Quantity):
-                    val = val.si
+                    units = val.si.unit
 
-                # get exponent
-                exp = Fraction(self.default_fiducial_values[key][1])
+                    # get exponent
+                    exp = Fraction(self.default_fiducial_values[key][1])
 
-                fiducial *= abs(val) ** exp
+                    fiducialunits *= units ** exp
+
+            # check whether multiple values are arrays and create a mesh if
+            # that is the case
+            mesh = None
+            if sum([length > 1 for length in arglens]) > 1:
+                idx = np.argwhere(np.array(arglens) > 1).flatten()
+                mesh = np.meshgrid(*[funcargs[i] for i in idx])
+                for i, j in enumerate(idx):
+                    funcargs[j] = mesh[i].flatten()
+
+            fiducial = self.sympy_var_func(*funcargs) * fiducialunits
+
+            if mesh is not None:
+                fiducial = np.reshape(fiducial, mesh[0].shape)
 
             if isinstance(fiducial, Quantity):
                 return fiducial.si.decompose()
             else:
                 return fiducial
 
-        def equation(self, displaytype="string"):
+        def equation(self, displaytype="string", **latexkwargs):
             """
             Generate the LaTeX string for the equation.
 
@@ -201,109 +238,48 @@ def equations(equation, **kwargs):
                 this will show as a formatted LaTeX equation. Alternatively, set to
                 "matplotlib" to have the output returned as a Matplotlib figure
                 object containing the equation.
+            latexkwargs: dict
+                Keyword parameters that can be passed to the
+                :func:`sympy.printing.latex.latex` function. By default the
+                ``fold_frac_powers`` option is set to True, the ``root_notation``
+                option is set to False and the LaTeX symbol names are defined by
+                the equation definition values.
             """
 
-            latex_equation = self.latex_name + " = "
+            seq_const = self.sympy_const
+            seq_var = self.sympy_var
 
-            constnumstr = ""  # constant numerator
-            constdenstr = ""  # constant denominator
+            # set defaults
+            symrep = {symbols(key): val for key, val in self.rhs_latex_strings.items()}
+            symrep[symbols(self.equation_name)] = self.latex_name
 
-            constfractions = {}
+            latexkwargs.setdefault("root_notation", True)
+            latexkwargs.setdefault("fold_frac_powers", True)
+            latexkwargs.setdefault("long_frac_ratio", 2.0)
 
-            for const in self.constants:
-                # value
-                if const[0] == "pi":
-                    cv = r"\pi"
-                else:
-                    cv = const[0]
+            mode = latexkwargs.pop("mode", "plain")
+            delim = "$" if displaytype == "matplotlib" or mode == "inline" else ""
 
-                # exponent
-                exp = abs(Fraction(const[1]))
+            latex_equation_const = latex(seq_const, **latexkwargs)
 
-                if str(exp) not in constfractions:
-                    constfractions[str(exp)] = ["", ""]
+            latexkwargs["root_notation"] = False
+            latexkwargs.setdefault("symbol_names", symrep)
+            latex_equation_var = latex(seq_var, **latexkwargs)
 
-                if Fraction(const[1]) < 0:
-                    # denominator value
-                    constfractions[str(exp)][1] += " " + cv
-                else:
-                    # numerator value
-                    constfractions[str(exp)][0] += " " + cv
-
-            # construct constant latex string
-            conststr = ""
-            for exp in constfractions:
-                if len(constfractions[exp][0]) == 0:
-                    constnumstr = "1"
-                else:
-                    constnumstr = constfractions[exp][0]
-
-                constdenstr = constfractions[exp][1]
-
-                lbrace, rbrace = (
-                    ("", "") if Fraction(exp) == 1 else (r"\left(", r"\right)")
-                )
-                expstr = "" if exp == "1" else (f"^{{{exp}}}")
-
-                if len(constdenstr) == 0:
-                    conststr += f"{constnumstr}{expstr}"
-                else:
-                    conststr += rf"{lbrace}\frac{{{constnumstr}}}{{{constdenstr}}}{rbrace}{expstr}"
-
-            latex_equation += conststr
-
-            # use default fiducial value keys for the rest of the equation
-            varnumstr = ""  # variables numerator
-            vardenstr = ""  # variables denominator
-
-            varfractions = {}
-
-            for key in self.default_fiducial_values:
-                varlatex = self.rhs_latex_strings[key]
-
-                # get exponent
-                exp = abs(Fraction(self.default_fiducial_values[key][1]))
-
-                if str(exp) not in varfractions:
-                    varfractions[str(exp)] = ["", ""]
-
-                if Fraction(self.default_fiducial_values[key][1]) < 0:
-                    # denominator value
-                    varfractions[str(exp)][1] += " " + varlatex
-                else:
-                    # numerator value
-                    varfractions[str(exp)][0] += " " + varlatex
-
-            # construct variables latex string
-            varstr = ""
-            for exp in varfractions:
-                if len(varfractions[exp][0]) == 0:
-                    varnumstr = "1"
-                else:
-                    varnumstr = varfractions[exp][0]
-
-                vardenstr = varfractions[exp][1]
-
-                lbrace, rbrace = (
-                    ("", "")
-                    if Fraction(exp) == 1 or varnumstr.split() == 1
-                    else (r"\left(", r"\right)")
-                )
-                expstr = "" if Fraction(exp) == 1 else (f"^{{{exp}}}")
-
-                if len(vardenstr) == 0:
-                    varstr += f"{lbrace}{{{varnumstr}}}{rbrace}{expstr}"
-                else:
-                    varstr += (
-                        rf"{lbrace}\frac{{{varnumstr}}}{{{vardenstr}}}{rbrace}{expstr}"
-                    )
-
-            latex_equation += varstr
+            latex_equation = f"{delim}{self.latex_name} = {latex_equation_const}{latex_equation_var}{delim}"
 
             if displaytype.lower() == "matplotlib":
                 return EquationLaTeXToImage(latex_equation)
             else:
                 return EquationLaTeXString(latex_equation)
+
+        @property
+        def eqn(self):
+            """
+            The equation as a string.
+            """
+
+            return self.equation()
 
         def __repr__(self):
             return str(self.equation())
@@ -392,13 +368,20 @@ def equations(equation, **kwargs):
             else:
                 return EquationLaTeXString(latex_equation)
 
-        def evaluate(self):
+        def evaluate(self, **kwargs):
             """
             Evaluate the equation using the given values.
+
+            Keyword arguments can be passed using the keys of the
+            :attr:`._EquationBase.default_fiducial_values` giving the values at
+            which to perform the calculation. Otherwise the default values, or
+            values set at initialisation are used. These can be 1d arrays,
+            where if more that one value is an array of then a mesh grid will
+            be created over the space and the values returned on that mesh.
             """
 
             const = self.calculate_constant()
-            fid = self.calculate_fiducial()
+            fid = self.calculate_fiducial(**kwargs)
 
             value = const * fid
 
@@ -472,6 +455,71 @@ def equations(equation, **kwargs):
         def __str__(self):
             return self.equation()
 
+        @property
+        def sympy_const(self):
+            """
+            Construct and return a :class:`sympy.core.mul.Mul` containing the
+            constants in the equation.
+            """
+
+            if not hasattr(self, "_sympy_const"):
+                if len(self.constants) > 0:
+                    eqstr = "*".join([f"{c[0]}**({c[1]})" for c in self.constants])
+                    self._sympy_const = powsimp(sympify(eqstr), force=True)
+                else:
+                    self._sympy_const = None
+
+            return self._sympy_const 
+
+        @property
+        def sympy_var(self):
+            """
+            Construct and return a :class:`sympy.core.mul.Mul` containing the
+            variables in the equation.
+            """
+
+            if not hasattr(self, "_sympy_var"):
+                eqstr = "*".join(
+                    [f"{key}**({val[1]})" for key, val in self.default_fiducial_values.items()]
+                )
+
+                self._sympy_var = powsimp(sympify(eqstr), force=True)
+
+                # lambda-ified version of function
+                self._sympy_var_func = lambdify(
+                    [symbols(key) for key in self.default_fiducial_values],
+                    self._sympy_var,
+                    modules="numpy",
+                )
+
+            return self._sympy_var
+
+        @property
+        def sympy_var_func(self):
+            if not hasattr(self, "_sympy_var_func"):
+                _ = self.sympy_var
+
+            return self._sympy_var_func
+
+        @property
+        def sympy(self):
+            """
+            Construct and return the equation as a
+            :class:`sympy.core.relational.Equality`.
+            """
+
+            if hasattr(self, "_sympy"):
+                return self._sympy
+            else:
+                const = self.sympy_const if self.sympy_const is not None else 1
+                var = self.sympy_var
+                self._sympy = Eq(
+                    symbols(self.equation_name),
+                    const * var
+                )
+
+                return self._sympy
+
     # update the class docstring
     try:
         _EquationBase.__doc__ = eqinfo["docstring"]
@@ -531,14 +579,14 @@ class EquationLaTeXToImage:
             t = self.ax.text(
                 0.05,
                 0.5,
-                "$" + self.text + "$",
+                self.text,
                 usetex=True,
             )
         except RuntimeError:
             t = self.ax.text(
                 0.0,
                 0.5,
-                "$" + self.text + "$",
+                self.text,
             )
         self.ax.axis("off")
 
