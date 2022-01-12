@@ -138,7 +138,7 @@ class EqDict(dict):
             self[key]["latex_string"] = subdict["latex_string"]
         except KeyError:
             raise KeyError("Equation dictionary must contain a 'latex_string'")
-    
+
         try:
             self[key]["default_fiducial_values"] = subdict["default_fiducial_values"]
         except KeyError:
@@ -151,12 +151,14 @@ class EqDict(dict):
 
         self[key]["additional_values"] = subdict.get("additional_values", [])
         self[key]["converters"] = subdict.get("converters", {})
-        
+
         if "reference" in subdict:
             self[key]["reference"] = subdict.get("reference")
-        
+
         if "docstring" in subdict:
-            self[key]["docstring"] = subdict.get("docstring").format(**self.get_defaults(key))
+            self[key]["docstring"] = subdict.get("docstring").format(
+                **self.get_defaults(key)
+            )
 
     def get_defaults(self, key):
         """
@@ -263,7 +265,7 @@ EQN_DEFINITIONS["h0spindown"] = {
         ("c", "-3/2"),
         ("momentofinertia", "1/2"),
         ("rotationfrequency", "-1/2"),
-        ("rotationfdot",  "1/2"),
+        ("rotationfdot", "1/2"),
         ("distance", "-1"),
     ],
     "additional_values": [
@@ -328,8 +330,8 @@ EQN_DEFINITIONS["ellipticityspindown"] = {
         ("pi", "-2"),
         ("G", "-1/2"),
         ("c", "5/2"),
-        ("momentofinertia", "1/2"),
-        ("rotationfrequency", "-1/2"),
+        ("momentofinertia", "-1/2"),
+        ("rotationfrequency", "-5/2"),
         ("rotationfdot", "1/2"),
     ],
     "additional_values": [

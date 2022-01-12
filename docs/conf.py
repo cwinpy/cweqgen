@@ -236,7 +236,6 @@ References
 """
 
     for i, eqn in enumerate(EQN_DEFINITIONS):
-        print(eqn)
         eqstr = ""
         
         # create equation
@@ -280,7 +279,7 @@ The fiducial values defined for this equation are:
 To generate the equation as calculated at particular values, the
 :func:`~cweqgen.equations.equations` can be used as
 
-.. py:function:: equation("{0}", {1})
+.. py:function:: equations("{0}", {1})
     :noindex:
 """.format(
     eq.equation_name,

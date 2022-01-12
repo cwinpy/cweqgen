@@ -35,9 +35,7 @@ def convert_to_rotation_fdot(
         gwfrequency / 2.0
         if gwfrequency is not None
         else (
-            (1.0 / rotationperiod)
-            if rotationperiod is not None
-            else rotationfrequency
+            (1.0 / rotationperiod) if rotationperiod is not None else rotationfrequency
         )
     )
 
