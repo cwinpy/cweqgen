@@ -23,6 +23,7 @@ ALLOWED_VARIABLES = {
             "epsilon",
             "$\epsilon$",
             "$\varepsilon$",
+            "𝜀",
         ],
         "units": None,
         "sign": ">= 0",
@@ -118,6 +119,13 @@ ALLOWED_VARIABLES = {
         "units": None,
         "sign": None,
     },
+    "characteristicage": {
+        "description": "The characteristic age of a pulsar",
+        "latex_string": r"\tau",
+        "aliases": ["characteristicage", "tau", "𝜏"],
+        "units": "yr",
+        "sign": ">= 0",
+    }
 }
 
 
@@ -434,5 +442,49 @@ given in :obj:`cweqgen.definitions.ALLOWED_VARIABLES`, can be used instead.
 :keyword float or ~astropy.units.quantity.Quantity rotationfrequency: The rotation frequency of the source. If given as a float units of Hz are assumed. The default value is :math:`{rotationfrequency}`. If the rotational period or gravitational wave frequency are given instead then they will be converted into rotational frequency (for GW frequency it is assumed that this is twice the rotational frequency).
 :keyword float or ~astropy.units.quantity.Quantity rotationfdot: The first rotational frequency derivative (i.e. the spin-down). If given as a float units of Hz/s are assumed. The default value is :math:`{rotationfdot}`. If the rotational period derivative or gravitational wave frequency derivative is given instead then they will be converted into rotational frequency derivative.
 :keyword float or ~astropy.units.quantity.Quantity rotationfddot: The second rotational frequency derivative. If given as a float units of Hz/s^2 are assumed. The default value is :math:`{rotationfddot}`.
+""",
+}
+
+EQN_DEFINITIONS["characteristicage"] = {
+    "description": "Pulsar's characteristic age",
+    "latex_string": r"\tau",
+    "default_fiducial_values": {
+        "brakingindex": 3,
+        "rotationperiod": 0.01 * u.s,
+        "rotationpdot": 1e-15 * u.s / u.s,
+    },
+    "parts": [
+        ("rotationperiod", "1"),
+        ("rotationpdot", "-1"),
+        ("brakingindex - 1", "-1"),
+    ],
+    "additional_values": ["gwfrequency", "rotationfrequency", "rotationfdot"],
+    "converters": {
+        "rotationperiod": convert_to_rotation_period,
+        "rotationpdot": convert_to_rotation_pdot,
+    },
+    "reference": {
+        "short": "Condon, J. J. and Ransom, S. M., 2016, Essential Radio Astronomy",
+        "adsurl": "https://ui.adsabs.harvard.edu/abs/2016era..book.....C/abstract",
+        "eqno": "6.31",
+        "bibtex": r"""\
+@BOOK{2016era..book.....C,
+       author = {{Condon}, James J. and {Ransom}, Scott M.},
+        title = "{Essential Radio Astronomy}",
+         year = 2016,
+       adsurl = {https://ui.adsabs.harvard.edu/abs/2016era..book.....C},
+      adsnote = {Provided by the SAO/NASA Astrophysics Data System}
+}""",
+    },
+    "docstring": """
+Generate the pulsar's characteristic age.
+
+For the optional input keyword parameters below a range of aliases, as given in
+:obj:`~cweqgen.definitions.ALLOWED_VARIABLES`, can be used instead.
+
+:param str equation: "{name}"
+:keyword float or ~astropy.units.quantity.Quantity rotationperiod: The rotation period of a pulsar. If given as a float units of s are assumed. The default value is :math:`{rotationperiod}`.
+:keyword float or ~astropy.units.quantity.Quantity rotationpdot: The first derivative of the rotation period of a pulsar. If given as a float units of s/s are assumed. The default value is :math:`{rotationpdot}`.
+:keyword float or ~astropy.units.quantity.Quantity brakingindex: The braking index of the pulsar. The default value is :math:`{brakingindex}`.
 """,
 }

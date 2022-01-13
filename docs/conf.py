@@ -235,11 +235,20 @@ References
 ----------
 """
 
-    for i, eqn in enumerate(EQN_DEFINITIONS):
+    usedreferences = []
+    refcount = 1
+
+    for eqn in EQN_DEFINITIONS:
         eqstr = ""
         
         # create equation
         eq = equations(eqn)
+
+        if eq.reference_string in usedreferences:
+            refnum = usedreferences.index(eq.reference_string) + 1
+        else:
+            refnum = refcount
+            refcount += 1
 
         eqstr += """\
 {0}
@@ -258,7 +267,7 @@ The generated equation ({0} [{1}]_) is:
 .. math::
 
     {2}
-""".format(eqno, i + 1, eq.equation())
+""".format(eqno, refnum, eq.equation())
 
         eqstr += """
 The fiducial values defined for this equation are:
@@ -292,7 +301,7 @@ To generate the equation as calculated at particular values, the
 
         references += """
 .. [{0}] {1} [`ADS URL <{2}>`_]
-""".format(i + 1, eq.reference_string, eq.reference_adsurl)
+""".format(refnum, eq.reference_string, eq.reference_adsurl)
 
         doccontents += eqstr + "\n"
 

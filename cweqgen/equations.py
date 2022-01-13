@@ -13,6 +13,7 @@ from astropy.constants import G, c
 from matplotlib import pyplot as plt
 
 from sympy import (
+    Add,
     Eq,
     expand_power_base,
     lambdify,
@@ -118,7 +119,7 @@ class EquationBase:
         # LaTeX strings for RHS of equation
         self.rhs_latex_strings = kwargs.pop("rhs_latex_strings")
 
-        self.parse_kwargs(**kwargs)
+        self.values = self.parse_kwargs(**kwargs)
 
         # get simple format reference
         self.reference_string = kwargs.pop("reference_string", None)
@@ -137,20 +138,22 @@ class EquationBase:
         Get the required values for the specific equation.
         """
 
-        self.values = {}
+        values = {}
 
         for key in list(self.default_fiducial_values.keys()) + self.additional_values:
             value = self.check_for_alias(key, **kwargs)
             if value is not None:
-                self.values[key] = value
+                values[key] = value
 
         # perform conversions if required
         for key in self.converters:
-            if key not in self.values:
+            if key not in values:
                 try:
-                    self.values[key] = self.converters[key](**self.values)
+                    values[key] = self.converters[key](**values)
                 except ValueError:
                     pass
+        
+        return values
 
     @staticmethod
     def check_for_alias(key, **kwargs):
@@ -228,20 +231,17 @@ class EquationBase:
 
         self._unitdic = {}
 
-        for key in self.var_names:
-            value = self.check_for_alias(key, **kwargs)
+        values = self.parse_kwargs(**kwargs)
 
-            if value is not None:
-                # use keyword value
-                val = value
-            elif key in self.values:
+        for key in self.var_names:
+            if key in values:
                 # use provided value
-                val = self.values[key]
+                val = values[key]
             else:
                 val = self.default_fiducial_values[key]
 
-            funcargs[key] = np.abs(Quantity(val).si.value)
-            self._unitdic[key] = 1.0 * Quantity(val).si.unit  # this needs the "1.0 *"
+            val = Quantity(val)
+            funcargs[key] = np.abs(val.si)
 
             try:
                 arglens.append(len(funcargs[key]))
@@ -265,10 +265,10 @@ class EquationBase:
                 for i, key in enumerate(keys):
                     funcargs[key] = mesh[i].flatten()
 
-        # get units
-        fiducialunits = self._sympy_var_unit_func(**{key: key for key in self._unitdic})
-
-        fiducial = self.sympy_var_func(**funcargs) * fiducialunits
+        # evaluate equation (loop through each part)
+        fiducial = 1.0
+        for key in funcargs:
+            fiducial *= self._sympy_var_lambda[key](**{key: funcargs[key]})
 
         if mesh is not None:
             fiducial = np.reshape(fiducial, mesh[0].shape)
@@ -386,8 +386,9 @@ class EquationBase:
 
         fiducial = ""
 
-        for key, arg in zip(self.var_names, self.sympy_var.args):
-            varlatex = self.rhs_latex_strings[key]
+        for key in self.var_names:
+            arg = self._sympy_var_parts[key]
+            varlatex = self.rhs_latex_strings[key] if not isinstance(arg, Pow) else latex(arg.base, symbol_names={symbols(key): self.rhs_latex_strings[key]})
 
             # get exponent
             exp = 1 if not isinstance(arg, Pow) else Fraction(*arg.exp.as_numer_denom())
@@ -398,6 +399,10 @@ class EquationBase:
                 val = Quantity(self.values[key])
             else:
                 val = Quantity(self.default_fiducial_values[key])
+
+            if exp != 1:
+                # evaluate base for cases such as args being (n + 1)^x
+                val = float(arg.base.subs([(symbols(key), val.value)]).evalf()) * val.unit
 
             if exp < 0:
                 numerator = val.to_string(precision=(dp + 1), format="latex").replace(
@@ -589,36 +594,31 @@ class EquationBase:
 
         if not hasattr(self, "_sympy_const"):
             self._sympy_const = 1
-            self._sympy_const_with_unit = 1
-            sympy_const_unit_names = {}
+            sympy_const_unit_values = {}
 
             for arg in self.sympy.rhs.args:
                 if arg.is_constant():
                     self._sympy_const *= arg
-                    self._sympy_const_with_unit *= float(arg.evalf())
                 else:
-                    if hasattr(arg, "name"):
-                        name = str(arg.name)
-                    elif hasattr(arg, "base"):
+                    if isinstance(arg, Symbol):
+                        name = arg.name
+                    elif isinstance(arg, Pow):
                         name = str(arg.base)
                     else:
                         name = None
 
                     if name in CONSTANTS:
-                        sympy_const_unit_names[name] = name
-                        self._sympy_const_with_unit *= arg.subs(
-                            [(symbols(name), sympify(f"const({name})"))]
-                        )
+                        sympy_const_unit_values[name] = CONSTANTS[name]
                         self._sympy_const *= arg
 
-            # evaluate constant
+            # evaluate constant by creating a lamdified function
             if self._sympy_const != 1:
                 constf = lambdify(
-                    [symbols(name) for name in sympy_const_unit_names],
-                    self._sympy_const_with_unit,
-                    modules=[{"const": constfunc}, "numpy"],
+                    [symbols(name) for name in sympy_const_unit_values.keys()],
+                    self._sympy_const,
+                    modules=["numpy"],
                 )
-                constant = constf(**sympy_const_unit_names)
+                constant = constf(**sympy_const_unit_values)
 
                 if isinstance(constant, Quantity):
                     self._constant = constant.si.decompose()
@@ -650,40 +650,63 @@ class EquationBase:
 
         if not hasattr(self, "_sympy_var"):
             self._sympy_var = 1
-            self._sympy_var_units = 1
-            self._sympy_var_unit_names = {}
-            self._var_names = []
+            self._sympy_var_parts = {}
+            self._sympy_var_lambda = {}
+
+            # get variable names
+            self._var_names = self._gather_var_argnames(self.sympy.rhs)
+
             for arg in self.sympy.rhs.args:
                 if not arg.is_constant():
-                    if hasattr(arg, "name"):
-                        name = str(arg.name)
-                    elif hasattr(arg, "base"):
-                        name = str(arg.base)
+                    if isinstance(arg, Symbol):
+                        name = arg.name
+                    elif isinstance(arg, (Pow, Add)):
+                        name = self._gather_var_argnames(arg)
+                        if len(name) > 1:
+                            raise ValueError("Currently we cannot deal with Pow or Add terms containing multiple variables")
+                        elif len(name) == 1:
+                            name = name[0]
+                        else:
+                            name = str(arg.base)
                     else:
-                        name = None
+                        raise TypeError("")
 
                     if name not in CONSTANTS:
                         self._sympy_var *= arg
-                        self._sympy_var_units *= arg.subs(
-                            [(symbols(name), sympify(f"unit({name})"))]
+
+                        # store each part
+                        self._sympy_var_parts[name] = arg
+
+                        # create functions for each part of the equation
+                        self._sympy_var_lambda[name] = lambdify(
+                            [symbols(name)],
+                            arg,
+                            modules=["numpy"],
                         )
-                        self._sympy_var_unit_names[name] = name
-                        self._var_names.append(name)
-
-            # lambda-ified version of function
-            self._sympy_var_func = lambdify(
-                [symbols(key) for key in self.default_fiducial_values],
-                self._sympy_var,
-                modules="numpy",
-            )
-
-            self._sympy_var_unit_func = lambdify(
-                [symbols(name) for name in self._sympy_var_unit_names],
-                self._sympy_var_units,
-                modules=[{"unit": self._unitfunc}, "numpy"],
-            )
 
         return self._sympy_var
+
+    @staticmethod
+    def _gather_var_argnames(args):
+        """
+        Find the variable names in an equation.
+        """
+
+        argnames = []
+        cargs = args.args
+
+        for arg in cargs:
+            nextargs = arg.args
+            if isinstance(arg, Symbol):
+                if arg.name not in CONSTANTS:
+                    argnames.append(arg.name)
+
+            if len(nextargs) == 0:
+                continue
+            else:
+                argnames.extend(EquationBase._gather_var_argnames(arg))
+
+        return argnames
 
     def _unitfunc(self, key):
         if not hasattr(self, "_unitdic"):

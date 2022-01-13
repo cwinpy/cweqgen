@@ -51,3 +51,40 @@ def convert_to_rotation_fdot(
         raise ValueError("Required conversion parameters are not present")
 
     return fdot
+
+
+def convert_to_rotation_period(gwfrequency=None, rotationfrequency=None, **kwargs):
+    """
+    Convert the GW frequency (assumed to be twice the rotation frequency) or
+    the rotation frequency into the rotation period.
+    """
+
+    if gwfrequency is not None:
+        return 2.0 / gwfrequency
+    elif rotationfrequency is not None:
+        return 1.0 / rotationfrequency
+    else:
+        raise ValueError("Required conversion parameters are not present")
+
+
+def convert_to_rotation_pdot(gwfrequency=None, rotationfrequency=None, rotationperiod=None, rotationfdot=None, **kwargs):
+    """
+    Convert the GW frequency (assumed to be twice the rotation frequency) or
+    the rotation frequency into the rotation period.
+    """
+
+    if rotationfdot is None:
+        raise ValueError("Required conversion parameters are not present")
+    else:
+        fdot = rotationfdot
+
+    if rotationperiod is not None:
+        freq = 1.0 / rotationperiod
+    elif gwfrequency is not None:
+        freq = gwfrequency / 2.0
+    elif rotationfrequency is not None:
+        freq = rotationfrequency
+    else:
+        raise ValueError("Required conversion parameters are not present")
+
+    return -fdot / freq ** 2
