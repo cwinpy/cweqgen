@@ -6,20 +6,19 @@ This package generates a range of common equations used by `continuous gravitati
 for the equation, it can evaluate the equations based on specified values, and create a LaTeX string
 based on supplied fiducial values.
 
-The current set of equations that the package contains are given in :ref:`Equations`.
+The current set of equations that the package contains are given in :ref:`Equations`. A selection
+of examples of using the package are shown in :ref:`Examples`.
 
 Installation
 ------------
 
 
 
-Examples
---------
-
 .. toctree::
    :maxdepth: 2
    :hidden:
 
    Equations <equations>
+   examples
    Defining equations <definitions>
    API <api>

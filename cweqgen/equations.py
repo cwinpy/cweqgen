@@ -156,7 +156,7 @@ class EquationBase:
                     values[key] = self.converters[key](**values)
                 except ValueError:
                     pass
-        
+
         return values
 
     @staticmethod
@@ -354,7 +354,7 @@ class EquationBase:
     def _repr_latex_(self):
         return "$" + str(self.equation()) + "$"
 
-    def fiducial_equation(self, dp=2, brackets="()", displaytype="string"):
+    def fiducial_equation(self, dp=2, brackets="()", displaytype="string", **kwargs):
         """
         Generate the LaTeX string for the equation inserting in fiducial values.
 
@@ -376,7 +376,12 @@ class EquationBase:
         latex_equation = self.latex_name + " = "
 
         # add in coefficient
-        coeff = self.evaluate()
+        values = deepcopy(self.values)
+        for key, val in kwargs.items():
+            values[key] = val
+        values = self.parse_kwargs(**values)
+
+        coeff = self.evaluate(**values)
 
         if not isinstance(coeff, Quantity):
             # convert into Quantity
@@ -402,9 +407,9 @@ class EquationBase:
             exp = 1 if not isinstance(arg, Pow) else Fraction(*arg.exp.as_numer_denom())
 
             # get value
-            if key in self.values:
+            if key in values:
                 # use provided value
-                val = Quantity(self.values[key])
+                val = Quantity(values[key])
             else:
                 val = Quantity(self.default_fiducial_values[key])
 
@@ -851,6 +856,6 @@ class EquationLaTeXToImage:
         self.fig.set_dpi(self.dpi)
         self.fig.set_tight_layout(tight_params)
 
-    def savefig(self, **kwargs):
+    def savefig(self, *arg, **kwargs):
         kwargs.setdefault("dpi", self.dpi)
-        return self.fig.savefig(**kwargs)
+        return self.fig.savefig(*arg, **kwargs)

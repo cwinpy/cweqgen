@@ -440,7 +440,7 @@ given in :obj:`cweqgen.definitions.ALLOWED_VARIABLES`, can be used instead.
 }
 
 EQN_DEFINITIONS["characteristicage"] = {
-    "description": "Pulsar's characteristic age",
+    "description": "The characteristic age of a pulsar",
     "latex_string": r"\tau",
     "default_fiducial_values": {
         "brakingindex": 3,
