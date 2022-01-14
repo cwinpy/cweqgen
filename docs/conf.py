@@ -236,6 +236,7 @@ References
 """
 
     usedreferences = []
+    usedrefurls = []
     refcount = 1
 
     for eqn in EQN_DEFINITIONS:
@@ -247,6 +248,8 @@ References
         if eq.reference_string in usedreferences:
             refnum = usedreferences.index(eq.reference_string) + 1
         else:
+            usedreferences.append(eq.reference_string)
+            usedrefurls.append(eq.reference_adsurl)
             refnum = refcount
             refcount += 1
 
@@ -299,11 +302,13 @@ To generate the equation as calculated at particular values, the
         for line in eq.__doc__.split("\n"):
             eqstr += f"    {line}\n"
 
+        doccontents += eqstr + "\n"
+
+    # add in list of references
+    for i in range(len(usedreferences)):
         references += """
 .. [{0}] {1} [`ADS URL <{2}>`_]
-""".format(refnum, eq.reference_string, eq.reference_adsurl)
-
-        doccontents += eqstr + "\n"
+""".format((i + 1), usedreferences[i], usedrefurls[i])
 
     with open(docfile, "w") as fp:
         fp.write(doccontents + references)

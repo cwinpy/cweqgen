@@ -133,6 +133,10 @@ class EquationBase:
         # BibTeX for reference (from ADS)
         self.reference_bibtex = kwargs.pop("reference_bibtex", None)
 
+        # make sure Sympy version of equation is generated
+        _ = self.sympy_var
+        _ = self.constant
+
     def parse_kwargs(self, **kwargs):
         """
         Get the required values for the specific equation.
@@ -173,11 +177,11 @@ class EquationBase:
 
                 # check value has compatible units
                 if key in ALLOWED_VARIABLES:
-                    if (
-                        not isinstance(value, Quantity)
-                        and ALLOWED_VARIABLES[key]["units"] is not None
-                    ):
-                        value *= u.Unit(ALLOWED_VARIABLES[key]["units"])
+                    if not isinstance(value, Quantity):
+                        if ALLOWED_VARIABLES[key]["units"] is not None:
+                            value *= u.Unit(ALLOWED_VARIABLES[key]["units"])
+                        else:
+                            value = Quantity(value)
                     elif (
                         isinstance(value, Quantity)
                         and ALLOWED_VARIABLES[key]["units"] is not None
@@ -240,7 +244,9 @@ class EquationBase:
             else:
                 val = self.default_fiducial_values[key]
 
-            val = Quantity(val)
+            if not isinstance(val, Quantity):
+                val = Quantity(val)
+
             funcargs[key] = np.abs(val.si)
 
             try:
@@ -268,7 +274,9 @@ class EquationBase:
         # evaluate equation (loop through each part)
         fiducial = 1.0
         for key in funcargs:
-            fiducial *= self._sympy_var_lambda[key](**{key: funcargs[key]})
+            eveq = self._sympy_var_lambda[key](**{key: funcargs[key]})
+            # NOTE: can't use *= as it causes a SegFault
+            fiducial = fiducial * eveq
 
         if mesh is not None:
             fiducial = np.reshape(fiducial, mesh[0].shape)
@@ -707,17 +715,6 @@ class EquationBase:
                 argnames.extend(EquationBase._gather_var_argnames(arg))
 
         return argnames
-
-    def _unitfunc(self, key):
-        if not hasattr(self, "_unitdic"):
-            self._unitdic = {}
-            for ukey, val in self.default_fiducial_values.items():
-                if isinstance(val, Quantity):
-                    self._unitdic[ukey] = 1.0 * val.unit  # need the 1.0
-                else:
-                    self._unitdic[ukey] = 1.0
-
-        return self._unitdic[key]
 
     @property
     def var_names(self):
