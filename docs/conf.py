@@ -44,6 +44,7 @@ extensions = [
     "sphinx.ext.autosummary",
     "sphinx.ext.autosectionlabel",
     "recommonmark",
+    "sphinx_panels",
     "sphinx.ext.todo",
 ]
 
