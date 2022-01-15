@@ -11,6 +11,11 @@ dictionaries containing the following keys:
 "description (required)":
    a string giving a brief description of the equation
 
+"variable (required)":
+   the variable that the equation is defining (this must be from the names in
+   :obj:`~cweqgen.definitions.ALLOWED_VARIABLES`). This may be the same as the equation name, but it
+   doesn't have to be. For example, the equation named "h0spindown" defines a "h0" variable.
+
 "latex_string (required)":
    a LaTeX math string (excluding ``$`` symbols) with which to represent the left-hand-side of the
    equation.
@@ -27,7 +32,7 @@ dictionaries containing the following keys:
    :class:`astropy.units.Unit`). The variable parameter names must be consistent with the names in
    the :obj:`~cweqgen.definitions.ALLOWED_VARIABLES` dictionary and those given in **parts**.
 
-"additional_values":
+"alternative_variables":
    a list of variable names that can be used to derive a subset of the variables
    in the "default_fiducial_values", i.e., if the equation requires the "rotationfrequency" then
    this could contain "rotationperiod", which can instead be used to derive the rotation frequency.

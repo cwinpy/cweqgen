@@ -9,7 +9,7 @@ ALLOWED_VARIABLES = {
     "h0": {
         "description": "Gravitational wave amplitude",
         "latex_string": r"h_0",
-        "aliases": ["h0", "h_0", "$h_0$"],
+        "aliases": ["h0", "h_0"],
         "units": None,
         "sign": ">= 0",
     },
@@ -21,8 +21,6 @@ ALLOWED_VARIABLES = {
             "ell",
             "eps",
             "epsilon",
-            "$\epsilon$",
-            "$\varepsilon$",
             "𝜀",
         ],
         "units": None,
@@ -31,7 +29,7 @@ ALLOWED_VARIABLES = {
     "massquadrupole": {
         "description": "Mass quadrupole moment (l=m=2)",
         "latex_string": r"Q_{22}",
-        "aliases": ["massquadrupole", "q22", "$q_{22}"],
+        "aliases": ["massquadrupole", "q22", "q_22"],
         "units": "kg m^2",
         "sign": ">= 0",
     },
@@ -115,7 +113,7 @@ ALLOWED_VARIABLES = {
     "brakingindex": {
         "description": "The braking index of a pulsar",
         "latex_string": "n",
-        "aliases": ["brakingindex", "n", "$n$"],
+        "aliases": ["brakingindex", "n"],
         "units": None,
         "sign": None,
     },
@@ -157,7 +155,7 @@ class EqDict(dict):
         except KeyError:
             raise KeyError("Equation dictionary must contain 'parts'")
 
-        self[key]["additional_values"] = subdict.get("additional_values", [])
+        self[key]["alternative_variables"] = subdict.get("alternative_variables", [])
         self[key]["converters"] = subdict.get("converters", {})
 
         if "reference" in subdict:
@@ -198,6 +196,7 @@ EQN_DEFINITIONS = EqDict()
 
 EQN_DEFINITIONS["h0"] = {
     "description": "Gravitational wave amplitude",
+    "variable": "h0",
     "latex_string": "h_0",
     "default_fiducial_values": {
         "ellipticity": 1e-6,
@@ -215,7 +214,7 @@ EQN_DEFINITIONS["h0"] = {
         ("rotationfrequency", "2"),
         ("distance", "-1"),
     ],
-    "additional_values": ["gwfrequency", "rotationperiod"],
+    "alternative_variables": ["gwfrequency", "rotationperiod"],
     "converters": {
         "rotationfrequency": convert_to_rotation_frequency,
     },
@@ -260,6 +259,7 @@ For the optional input keyword parameters below a range of aliases, as given in
 
 EQN_DEFINITIONS["h0spindown"] = {
     "description": "Gravitational wave amplitude spin-down limit",
+    "variable": "h0",
     "latex_string": r"h_0^{\rm sd}",
     "default_fiducial_values": {
         "momentofinertia": 1e38 * u.Unit("kg m^2"),
@@ -276,7 +276,7 @@ EQN_DEFINITIONS["h0spindown"] = {
         ("rotationfdot", "1/2"),
         ("distance", "-1"),
     ],
-    "additional_values": [
+    "alternative_variables": [
         "gwfrequency",
         "rotationperiod",
         "gwfdot",
@@ -327,6 +327,7 @@ For the optional input keyword parameters below a range of aliases, as given in
 
 EQN_DEFINITIONS["ellipticityspindown"] = {
     "description": "Spin-down limit for neutron star ellipticity",
+    "variable": "ellipticity",
     "latex_string": r"\varepsilon^{\rm sd}",
     "default_fiducial_values": {
         "momentofinertia": 1e38 * u.Unit("kg m^2"),
@@ -342,7 +343,7 @@ EQN_DEFINITIONS["ellipticityspindown"] = {
         ("rotationfrequency", "-5/2"),
         ("rotationfdot", "1/2"),
     ],
-    "additional_values": [
+    "alternative_variables": [
         "gwfrequency",
         "rotationperiod",
         "gwfdot",
@@ -392,6 +393,7 @@ given in :obj:`cweqgen.definitions.ALLOWED_VARIABLES`, can be used instead.
 
 EQN_DEFINITIONS["brakingindex"] = {
     "description": "The braking index of a pulsar",
+    "variable": "brakingindex",
     "latex_string": "n",
     "default_fiducial_values": {
         "rotationfrequency": 50 * u.Hz,
@@ -403,7 +405,7 @@ EQN_DEFINITIONS["brakingindex"] = {
         ("rotationfddot", "1"),
         ("rotationfdot", "-2"),
     ],
-    "additional_values": [
+    "alternative_variables": [
         "gwfrequency",
         "rotationperiod",
         "gwfdot",
@@ -441,6 +443,7 @@ given in :obj:`cweqgen.definitions.ALLOWED_VARIABLES`, can be used instead.
 
 EQN_DEFINITIONS["characteristicage"] = {
     "description": "The characteristic age of a pulsar",
+    "variable": "characteristicage",
     "latex_string": r"\tau",
     "default_fiducial_values": {
         "brakingindex": 3,
@@ -452,7 +455,7 @@ EQN_DEFINITIONS["characteristicage"] = {
         ("rotationpdot", "-1"),
         ("brakingindex - 1", "-1"),
     ],
-    "additional_values": ["gwfrequency", "rotationfrequency", "rotationfdot"],
+    "alternative_variables": ["gwfrequency", "rotationfrequency", "rotationfdot"],
     "converters": {
         "rotationperiod": convert_to_rotation_period,
         "rotationpdot": convert_to_rotation_pdot,

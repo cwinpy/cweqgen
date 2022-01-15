@@ -53,7 +53,7 @@ def equations(equation, **kwargs):
     kwargs["equation"] = equation
     kwargs["default_fiducial_values"] = eqinfo["default_fiducial_values"]
     kwargs["parts"] = eqinfo["parts"]
-    kwargs["additional_values"] = eqinfo.get("additional_values", [])
+    kwargs["alternative_variables"] = eqinfo.get("alternative_variables", [])
     kwargs["converters"] = eqinfo.get("converters", {})
 
     # reference information
@@ -107,7 +107,7 @@ class EquationBase:
         self.default_fiducial_values = kwargs.pop("default_fiducial_values")
 
         # list containing additional keyword values that can be used
-        self.additional_values = kwargs.pop("additional_values", [])
+        self.alternative_variables = kwargs.pop("alternative_variables", [])
 
         # dictionary of functions to convert from additional values into
         # required values (keyed on the required values)
@@ -144,7 +144,7 @@ class EquationBase:
 
         values = {}
 
-        for key in list(self.default_fiducial_values.keys()) + self.additional_values:
+        for key in list(self.default_fiducial_values.keys()) + self.alternative_variables:
             value = self.check_for_alias(key, **kwargs)
             if value is not None:
                 values[key] = value
