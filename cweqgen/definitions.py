@@ -9,7 +9,7 @@ ALLOWED_VARIABLES = {
     "h0": {
         "description": "Gravitational wave amplitude",
         "latex_string": r"h_0",
-        "aliases": ["h0", "h_0", "$h_0$"],
+        "aliases": ["h0", "h_0"],
         "units": None,
         "sign": ">= 0",
     },
@@ -21,8 +21,6 @@ ALLOWED_VARIABLES = {
             "ell",
             "eps",
             "epsilon",
-            "$\epsilon$",
-            "$\varepsilon$",
             "𝜀",
         ],
         "units": None,
@@ -31,7 +29,7 @@ ALLOWED_VARIABLES = {
     "massquadrupole": {
         "description": "Mass quadrupole moment (l=m=2)",
         "latex_string": r"Q_{22}",
-        "aliases": ["massquadrupole", "q22", "$q_{22}"],
+        "aliases": ["massquadrupole", "q22", "q_22"],
         "units": "kg m^2",
         "sign": ">= 0",
     },
@@ -115,7 +113,7 @@ ALLOWED_VARIABLES = {
     "brakingindex": {
         "description": "The braking index of a pulsar",
         "latex_string": "n",
-        "aliases": ["brakingindex", "n", "$n$"],
+        "aliases": ["brakingindex", "n"],
         "units": None,
         "sign": None,
     },
@@ -124,6 +122,13 @@ ALLOWED_VARIABLES = {
         "latex_string": r"\tau",
         "aliases": ["characteristicage", "tau", "𝜏"],
         "units": "yr",
+        "sign": ">= 0",
+    },
+    "luminosity": {
+        "description": "The luminosity of a source",
+        "latex_string": "L",
+        "aliases": ["luminosity", "l", "spindownluminosity", "gwluminosity", "lgw", "lsd"],
+        "units": "W",
         "sign": ">= 0",
     }
 }
@@ -143,6 +148,11 @@ class EqDict(dict):
             raise KeyError("Equation dictionary must contain a 'description'")
 
         try:
+            self[key]["variable"] = subdict["variable"]
+        except KeyError:
+            raise KeyError("Equation dictionary must contain a 'variable'")   
+
+        try:
             self[key]["latex_string"] = subdict["latex_string"]
         except KeyError:
             raise KeyError("Equation dictionary must contain a 'latex_string'")
@@ -155,9 +165,12 @@ class EqDict(dict):
         try:
             self[key]["parts"] = subdict["parts"]
         except KeyError:
-            raise KeyError("Equation dictionary must contain 'parts'")
+            try:
+                self[key]["chain"] = subdict["chain"]
+            except KeyError:
+                raise KeyError("Equation dictionary must contain 'parts' or 'chain'")
 
-        self[key]["additional_values"] = subdict.get("additional_values", [])
+        self[key]["alternative_variables"] = subdict.get("alternative_variables", [])
         self[key]["converters"] = subdict.get("converters", {})
 
         if "reference" in subdict:
@@ -198,6 +211,7 @@ EQN_DEFINITIONS = EqDict()
 
 EQN_DEFINITIONS["h0"] = {
     "description": "Gravitational wave amplitude",
+    "variable": "h0",
     "latex_string": "h_0",
     "default_fiducial_values": {
         "ellipticity": 1e-6,
@@ -215,7 +229,7 @@ EQN_DEFINITIONS["h0"] = {
         ("rotationfrequency", "2"),
         ("distance", "-1"),
     ],
-    "additional_values": ["gwfrequency", "rotationperiod"],
+    "alternative_variables": ["gwfrequency", "rotationperiod"],
     "converters": {
         "rotationfrequency": convert_to_rotation_frequency,
     },
@@ -258,8 +272,123 @@ For the optional input keyword parameters below a range of aliases, as given in
 """,
 }
 
+EQN_DEFINITIONS["spindownluminosity"] = {
+    "description": "The spin-down luminosity of a pulsar",
+    "variable": "luminosity",
+    "latex_string": r"L_{\rm sd}",
+    "default_fiducial_values": {
+        "momentofinertia": 1e38 * u.Unit("kg m^2"),
+        "rotationfrequency": 100 * u.Hz,
+        "rotationfdot": -1e-11 * u.Hz / u.s,
+    },
+    "parts": [
+        ("4", "1"),
+        ("pi", "2"),
+        ("momentofinertia", "1"),
+        ("rotationfrequency", "1"),
+        ("rotationfdot", "1"),
+    ],
+    "alternative_variables": [
+        "gwfrequency",
+        "rotationperiod",
+        "gwfdot",
+        "rotationpdot",
+    ],
+    "converters": {
+        "rotationfrequency": convert_to_rotation_frequency,
+        "rotationfdot": convert_to_rotation_fdot,
+    },
+    "reference": {  # this is just an example reference for the braking index (there will be earlier references!)
+        "short": "Condon, J. J. and Ransom, S. M., 2016, Essential Radio Astronomy",
+        "adsurl": "https://ui.adsabs.harvard.edu/abs/2016era..book.....C/abstract",
+        "eqno": "6.35",
+        "bibtex": r"""\
+@BOOK{2016era..book.....C,
+       author = {{Condon}, James J. and {Ransom}, Scott M.},
+        title = "{Essential Radio Astronomy}",
+         year = 2016,
+       adsurl = {https://ui.adsabs.harvard.edu/abs/2016era..book.....C},
+      adsnote = {Provided by the SAO/NASA Astrophysics Data System}
+}""",
+    },
+    "docstring": """
+Generate the spin-down luminosity of a pulsar.
+
+For the optional input keyword parameters below a range of aliases, as given in
+:obj:`~cweqgen.definitions.ALLOWED_VARIABLES`, can be used instead.
+
+:param str equation: "{name}"
+:keyword float or ~astropy.units.quantity.Quantity momentofinertia: The principal moment of inertia with which the calculate the GW amplitude. If given as a float units of kg m^2 are assumed. The default value is :math:`{momentofinertia}`.
+:keyword float or ~astropy.units.quantity.Quantity rotationfrequency: The rotation frequency of the source. If given as a float units of Hz are assumed. The default value is :math:`{rotationfrequency}`. If the rotational period or gravitational wave frequency are given instead then they will be converted into rotational frequency (for GW frequency it is assumed that this is twice the rotational frequency).
+:keyword float or ~astropy.units.quantity.Quantity rotationfdot: The first rotational frequency derivative (i.e. the spin-down). If given as a float units of Hz/s are assumed. The default value is :math:`{rotationfdot}`. If the rotational period derivative or gravitational wave frequency derivative is given instead then they will be converted into rotational frequency derivative.
+""",
+}
+
+EQN_DEFINITIONS["gwluminosity"] = {
+    "description": "The gravitational-wave luminosity of a pulsar",
+    "variable": "luminosity",
+    "latex_string": r"L_{\rm gw}",
+    "default_fiducial_values": {
+        "momentofinertia": 1e38 * u.Unit("kg m^2"),
+        "rotationfrequency": 100 * u.Hz,
+        "ellipticity": 1e-6,
+    },
+    "parts": [
+        ("2048/5", "1"),
+        ("pi", "6"),
+        ("G", "1"),
+        ("c", "-5"),
+        ("momentofinertia", "2"),
+        ("ellipticity", "2"),
+        ("rotationfrequency", "6"),
+    ],
+    "alternative_variables": [
+        "gwfrequency",
+        "rotationperiod",
+    ],
+    "converters": {
+        "rotationfrequency": convert_to_rotation_frequency,
+    },
+    "reference": {
+        "short": "Aasi, A., et al. 2014, ApJ, 785, 119",
+        "adsurl": "https://ui.adsabs.harvard.edu/abs/2014ApJ...785..119A/abstract",
+        "eqno": "4",
+        "bibtex": r"""\
+@ARTICLE{2014ApJ...785..119A,
+       author = {{Aasi}, J. and others},
+       title = "{Gravitational Waves from Known Pulsars: Results from the Initial Detector Era}",
+      journal = {\apj},
+     keywords = {gravitational waves, pulsars: general, Astrophysics - High Energy Astrophysical Phenomena, General Relativity and Quantum Cosmology},
+         year = 2014,
+        month = apr,
+       volume = {785},
+       number = {2},
+          eid = {119},
+        pages = {119},
+          doi = {10.1088/0004-637X/785/2/119},
+archivePrefix = {arXiv},
+       eprint = {1309.4027},
+ primaryClass = {astro-ph.HE},
+       adsurl = {https://ui.adsabs.harvard.edu/abs/2014ApJ...785..119A},
+      adsnote = {Provided by the SAO/NASA Astrophysics Data System}
+}""",
+    },
+    "docstring": """
+Generate the gravitational-wave luminosity of a pulsar.
+
+For the optional input keyword parameters below a range of aliases, as given in
+:obj:`~cweqgen.definitions.ALLOWED_VARIABLES`, can be used instead.
+
+:param str equation: "{name}"
+:keyword float or ~astropy.units.quantity.Quantity ellipticity: The ellipticity of the source with which the calculate the GW amplitude. The default value is :math:`{ellipticity}`.
+:keyword float or ~astropy.units.quantity.Quantity momentofinertia: The principal moment of inertia with which the calculate the GW amplitude. If given as a float units of kg m^2 are assumed. The default value is :math:`{momentofinertia}`.
+:keyword float or ~astropy.units.quantity.Quantity rotationfrequency: The rotation frequency of the source. If given as a float units of Hz are assumed. The default value is :math:`{rotationfrequency}`. If the rotational period or gravitational wave frequency are given instead then they will be converted into rotational frequency (for GW frequency it is assumed that this is twice the rotational frequency).
+""",
+}
+
 EQN_DEFINITIONS["h0spindown"] = {
-    "description": "Gravitational wave amplitude spin-down limit",
+    "description": "Gravitational-wave amplitude spin-down limit",
+    "variable": "h0",
     "latex_string": r"h_0^{\rm sd}",
     "default_fiducial_values": {
         "momentofinertia": 1e38 * u.Unit("kg m^2"),
@@ -267,16 +396,11 @@ EQN_DEFINITIONS["h0spindown"] = {
         "rotationfdot": -1e-11 * u.Hz / u.s,
         "distance": 1 * u.kpc,
     },
-    "parts": [
-        ("5/2", "1/2"),
-        ("G", "1/2"),
-        ("c", "-3/2"),
-        ("momentofinertia", "1/2"),
-        ("rotationfrequency", "-1/2"),
-        ("rotationfdot", "1/2"),
-        ("distance", "-1"),
+    "chain": [
+        "ellipticityspindown",
+        "substitute h0",
     ],
-    "additional_values": [
+    "alternative_variables": [
         "gwfrequency",
         "rotationperiod",
         "gwfdot",
@@ -327,22 +451,19 @@ For the optional input keyword parameters below a range of aliases, as given in
 
 EQN_DEFINITIONS["ellipticityspindown"] = {
     "description": "Spin-down limit for neutron star ellipticity",
+    "variable": "ellipticity",
     "latex_string": r"\varepsilon^{\rm sd}",
     "default_fiducial_values": {
         "momentofinertia": 1e38 * u.Unit("kg m^2"),
         "rotationfrequency": 100 * u.Hz,
         "rotationfdot": -1e-11 * u.Hz / u.s,
     },
-    "parts": [
-        ("5/512", "1/2"),
-        ("pi", "-2"),
-        ("G", "-1/2"),
-        ("c", "5/2"),
-        ("momentofinertia", "-1/2"),
-        ("rotationfrequency", "-5/2"),
-        ("rotationfdot", "1/2"),
+    "chain": [
+        "gwluminosity",
+        "equals spindownluminosity",
+        "rearrange ellipticity",
     ],
-    "additional_values": [
+    "alternative_variables": [
         "gwfrequency",
         "rotationperiod",
         "gwfdot",
@@ -392,6 +513,7 @@ given in :obj:`cweqgen.definitions.ALLOWED_VARIABLES`, can be used instead.
 
 EQN_DEFINITIONS["brakingindex"] = {
     "description": "The braking index of a pulsar",
+    "variable": "brakingindex",
     "latex_string": "n",
     "default_fiducial_values": {
         "rotationfrequency": 50 * u.Hz,
@@ -403,7 +525,7 @@ EQN_DEFINITIONS["brakingindex"] = {
         ("rotationfddot", "1"),
         ("rotationfdot", "-2"),
     ],
-    "additional_values": [
+    "alternative_variables": [
         "gwfrequency",
         "rotationperiod",
         "gwfdot",
@@ -441,6 +563,7 @@ given in :obj:`cweqgen.definitions.ALLOWED_VARIABLES`, can be used instead.
 
 EQN_DEFINITIONS["characteristicage"] = {
     "description": "The characteristic age of a pulsar",
+    "variable": "characteristicage",
     "latex_string": r"\tau",
     "default_fiducial_values": {
         "brakingindex": 3,
@@ -452,7 +575,7 @@ EQN_DEFINITIONS["characteristicage"] = {
         ("rotationpdot", "-1"),
         ("brakingindex - 1", "-1"),
     ],
-    "additional_values": ["gwfrequency", "rotationfrequency", "rotationfdot"],
+    "alternative_variables": ["gwfrequency", "rotationfrequency", "rotationfdot"],
     "converters": {
         "rotationperiod": convert_to_rotation_period,
         "rotationpdot": convert_to_rotation_pdot,
