@@ -500,6 +500,13 @@ class EquationBase:
         values set at initialisation are used. These can be 1d arrays,
         where if more that one value is an array of then a mesh grid will
         be created over the space and the values returned on that mesh.
+
+        Parameters
+        ----------
+        value: bool
+            If value is False (the default) the evaluated equation will be
+            returned as an :class:`astropy.units.Quantity` object. If True
+            just the values will be returned.
         """
 
         const = self.constant
@@ -508,9 +515,16 @@ class EquationBase:
         value = const * fid
 
         if isinstance(value, Quantity):
-            return value.si.decompose()
+            if not kwargs.get("value", False):
+                return value.si.decompose()
+            else:
+                # return as values rather than Quantity object
+                return value.si.decompose().value
         else:
             return value
+
+    def __call__(self, **kwargs):
+        return self.evaluate(**kwargs)
 
     def rearrange(self, newvar, fidval=None, equal=None):
         r"""
