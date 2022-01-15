@@ -123,6 +123,13 @@ ALLOWED_VARIABLES = {
         "aliases": ["characteristicage", "tau", "𝜏"],
         "units": "yr",
         "sign": ">= 0",
+    },
+    "luminosity": {
+        "description": "The luminosity of a source",
+        "latex_string": "L",
+        "aliases": ["luminosity", "l", "spindownluminosity", "gwluminosity", "lgw", "lsd"],
+        "units": "W",
+        "sign": ">= 0",
     }
 }
 
@@ -254,6 +261,120 @@ For the optional input keyword parameters below a range of aliases, as given in
 :keyword float or ~astropy.units.quantity.Quantity momentofinertia: The principal moment of inertia with which the calculate the GW amplitude. If given as a float units of kg m^2 are assumed. The default value is :math:`{momentofinertia}`.
 :keyword float or ~astropy.units.quantity.Quantity rotationfrequency: The rotation frequency of the source. If given as a float units of Hz are assumed. The default value is :math:`{rotationfrequency}`. If the rotational period or gravitational wave frequency are given instead then they will be converted into rotational frequency (for GW frequency it is assumed that this is twice the rotational frequency).
 :keyword float or ~astropy.units.quantity.Quantity distance: The distance to the source. If given as a float units of kpc are assumed. The default value is :math:`{distance}`.
+""",
+}
+
+EQN_DEFINITIONS["spindownluminosity"] = {
+    "description": "The spin-down luminosity of a pulsar",
+    "variable": "luminosity",
+    "latex_string": r"L_{\rm sd}",
+    "default_fiducial_values": {
+        "momentofinertia": 1e38 * u.Unit("kg m^2"),
+        "rotationfrequency": 100 * u.Hz,
+        "rotationfdot": -1e-11 * u.Hz / u.s,
+    },
+    "parts": [
+        ("4", "1"),
+        ("pi", "2"),
+        ("momentofinertia", "1"),
+        ("rotationfrequency", "1"),
+        ("rotationfdot", "1"),
+    ],
+    "alternative_variables": [
+        "gwfrequency",
+        "rotationperiod",
+        "gwfdot",
+        "rotationpdot",
+    ],
+    "converters": {
+        "rotationfrequency": convert_to_rotation_frequency,
+        "rotationfdot": convert_to_rotation_fdot,
+    },
+    "reference": {  # this is just an example reference for the braking index (there will be earlier references!)
+        "short": "Condon, J. J. and Ransom, S. M., 2016, Essential Radio Astronomy",
+        "adsurl": "https://ui.adsabs.harvard.edu/abs/2016era..book.....C/abstract",
+        "eqno": "6.35",
+        "bibtex": r"""\
+@BOOK{2016era..book.....C,
+       author = {{Condon}, James J. and {Ransom}, Scott M.},
+        title = "{Essential Radio Astronomy}",
+         year = 2016,
+       adsurl = {https://ui.adsabs.harvard.edu/abs/2016era..book.....C},
+      adsnote = {Provided by the SAO/NASA Astrophysics Data System}
+}""",
+    },
+    "docstring": """
+Generate the spin-down luminosity of a pulsar.
+
+For the optional input keyword parameters below a range of aliases, as given in
+:obj:`~cweqgen.definitions.ALLOWED_VARIABLES`, can be used instead.
+
+:param str equation: "{name}"
+:keyword float or ~astropy.units.quantity.Quantity momentofinertia: The principal moment of inertia with which the calculate the GW amplitude. If given as a float units of kg m^2 are assumed. The default value is :math:`{momentofinertia}`.
+:keyword float or ~astropy.units.quantity.Quantity rotationfrequency: The rotation frequency of the source. If given as a float units of Hz are assumed. The default value is :math:`{rotationfrequency}`. If the rotational period or gravitational wave frequency are given instead then they will be converted into rotational frequency (for GW frequency it is assumed that this is twice the rotational frequency).
+:keyword float or ~astropy.units.quantity.Quantity rotationfdot: The first rotational frequency derivative (i.e. the spin-down). If given as a float units of Hz/s are assumed. The default value is :math:`{rotationfdot}`. If the rotational period derivative or gravitational wave frequency derivative is given instead then they will be converted into rotational frequency derivative.
+""",
+}
+
+EQN_DEFINITIONS["gwluminosity"] = {
+    "description": "The gravitational-wave luminosity of a pulsar",
+    "variable": "luminosity",
+    "latex_string": r"L_{\rm gw}",
+    "default_fiducial_values": {
+        "momentofinertia": 1e38 * u.Unit("kg m^2"),
+        "rotationfrequency": 100 * u.Hz,
+        "ellipticity": 1e-6,
+    },
+    "parts": [
+        ("2048/5", "1"),
+        ("pi", "6"),
+        ("G", "1"),
+        ("c", "-5"),
+        ("momentofinertia", "2"),
+        ("ellipticity", "2"),
+        ("rotationfrequency", "6"),
+    ],
+    "alternative_variables": [
+        "gwfrequency",
+        "rotationperiod",
+    ],
+    "converters": {
+        "rotationfrequency": convert_to_rotation_frequency,
+    },
+    "reference": {
+        "short": "Aasi, A., et al. 2014, ApJ, 785, 119",
+        "adsurl": "https://ui.adsabs.harvard.edu/abs/2014ApJ...785..119A/abstract",
+        "eqno": "4",
+        "bibtex": r"""\
+@ARTICLE{2014ApJ...785..119A,
+       author = {{Aasi}, J. and others},
+       title = "{Gravitational Waves from Known Pulsars: Results from the Initial Detector Era}",
+      journal = {\apj},
+     keywords = {gravitational waves, pulsars: general, Astrophysics - High Energy Astrophysical Phenomena, General Relativity and Quantum Cosmology},
+         year = 2014,
+        month = apr,
+       volume = {785},
+       number = {2},
+          eid = {119},
+        pages = {119},
+          doi = {10.1088/0004-637X/785/2/119},
+archivePrefix = {arXiv},
+       eprint = {1309.4027},
+ primaryClass = {astro-ph.HE},
+       adsurl = {https://ui.adsabs.harvard.edu/abs/2014ApJ...785..119A},
+      adsnote = {Provided by the SAO/NASA Astrophysics Data System}
+}""",
+    },
+    "docstring": """
+Generate the gravitational-wave luminosity of a pulsar.
+
+For the optional input keyword parameters below a range of aliases, as given in
+:obj:`~cweqgen.definitions.ALLOWED_VARIABLES`, can be used instead.
+
+:param str equation: "{name}"
+:keyword float or ~astropy.units.quantity.Quantity ellipticity: The ellipticity of the source with which the calculate the GW amplitude. The default value is :math:`{ellipticity}`.
+:keyword float or ~astropy.units.quantity.Quantity momentofinertia: The principal moment of inertia with which the calculate the GW amplitude. If given as a float units of kg m^2 are assumed. The default value is :math:`{momentofinertia}`.
+:keyword float or ~astropy.units.quantity.Quantity rotationfrequency: The rotation frequency of the source. If given as a float units of Hz are assumed. The default value is :math:`{rotationfrequency}`. If the rotational period or gravitational wave frequency are given instead then they will be converted into rotational frequency (for GW frequency it is assumed that this is twice the rotational frequency).
 """,
 }
 
