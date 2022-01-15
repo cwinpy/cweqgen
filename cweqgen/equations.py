@@ -599,7 +599,7 @@ class EquationBase:
         newkwargs["rhs_latex_strings"].pop(newvar)
         
         if not isinstance(equal, EquationBase):
-            newkwargs["rhs_latex_strings"][newvar] = self.latex_name
+            newkwargs["rhs_latex_strings"][self.variable] = self.latex_name
         else:
             newkwargs["rhs_latex_strings"].update(equal.kwargs["rhs_latex_strings"])
 
