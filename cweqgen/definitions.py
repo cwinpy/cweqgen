@@ -148,6 +148,11 @@ class EqDict(dict):
             raise KeyError("Equation dictionary must contain a 'description'")
 
         try:
+            self[key]["variable"] = subdict["variable"]
+        except KeyError:
+            raise KeyError("Equation dictionary must contain a 'variable'")   
+
+        try:
             self[key]["latex_string"] = subdict["latex_string"]
         except KeyError:
             raise KeyError("Equation dictionary must contain a 'latex_string'")
@@ -160,7 +165,10 @@ class EqDict(dict):
         try:
             self[key]["parts"] = subdict["parts"]
         except KeyError:
-            raise KeyError("Equation dictionary must contain 'parts'")
+            try:
+                self[key]["chain"] = subdict["chain"]
+            except KeyError:
+                raise KeyError("Equation dictionary must contain 'parts' or 'chain'")
 
         self[key]["alternative_variables"] = subdict.get("alternative_variables", [])
         self[key]["converters"] = subdict.get("converters", {})
@@ -379,7 +387,7 @@ For the optional input keyword parameters below a range of aliases, as given in
 }
 
 EQN_DEFINITIONS["h0spindown"] = {
-    "description": "Gravitational wave amplitude spin-down limit",
+    "description": "Gravitational-wave amplitude spin-down limit",
     "variable": "h0",
     "latex_string": r"h_0^{\rm sd}",
     "default_fiducial_values": {
@@ -388,14 +396,9 @@ EQN_DEFINITIONS["h0spindown"] = {
         "rotationfdot": -1e-11 * u.Hz / u.s,
         "distance": 1 * u.kpc,
     },
-    "parts": [
-        ("5/2", "1/2"),
-        ("G", "1/2"),
-        ("c", "-3/2"),
-        ("momentofinertia", "1/2"),
-        ("rotationfrequency", "-1/2"),
-        ("rotationfdot", "1/2"),
-        ("distance", "-1"),
+    "chain": [
+        "ellipticityspindown",
+        "substitute h0",
     ],
     "alternative_variables": [
         "gwfrequency",
@@ -455,14 +458,10 @@ EQN_DEFINITIONS["ellipticityspindown"] = {
         "rotationfrequency": 100 * u.Hz,
         "rotationfdot": -1e-11 * u.Hz / u.s,
     },
-    "parts": [
-        ("5/512", "1/2"),
-        ("pi", "-2"),
-        ("G", "-1/2"),
-        ("c", "5/2"),
-        ("momentofinertia", "-1/2"),
-        ("rotationfrequency", "-5/2"),
-        ("rotationfdot", "1/2"),
+    "chain": [
+        "gwluminosity",
+        "equals spindownluminosity",
+        "rearrange ellipticity",
     ],
     "alternative_variables": [
         "gwfrequency",

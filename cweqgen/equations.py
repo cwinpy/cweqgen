@@ -2,6 +2,7 @@ import abc
 
 from copy import deepcopy
 from fractions import Fraction
+from astropy.units.format.base import Base
 
 import numpy as np
 from numpy import pi
@@ -45,14 +46,14 @@ def equations(equation, **kwargs):
     class itself.
     """
 
-    if equation not in EQN_DEFINITIONS:
+    if equation.lower() not in EQN_DEFINITIONS:
         raise KeyError(f"Equation '{equation}' is not currently defined")
 
     # set values for required equation
-    eqinfo = EQN_DEFINITIONS[equation]
-    kwargs["equation"] = equation
+    eqinfo = EQN_DEFINITIONS[equation.lower()]
+    kwargs["equation"] = equation.lower()
+    kwargs["equation_variable"] = eqinfo["variable"]
     kwargs["default_fiducial_values"] = eqinfo["default_fiducial_values"]
-    kwargs["parts"] = eqinfo["parts"]
     kwargs["alternative_variables"] = eqinfo.get("alternative_variables", [])
     kwargs["converters"] = eqinfo.get("converters", {})
 
@@ -75,8 +76,52 @@ def equations(equation, **kwargs):
             ALLOWED_VARIABLES[key]["latex_string"] if key in ALLOWED_VARIABLES else key
         )
 
+    # check whether generating an equation from parts of from a chain
+    parts = eqinfo.get("parts", None)
+
     # generate equation
-    eq = EquationBase(**kwargs)
+    if parts is not None:
+        kwargs["parts"] = parts
+        
+    else:
+        chain = eqinfo["chain"]
+
+        # get start equation, given by the first item in chain
+        try:
+            eq = equations(chain[0])
+        except Exception as e:
+            raise RuntimeError(f"Could not generate first equation in a chain: {e}")
+
+        eqother = None
+        for link in chain[1:]:
+            # split into parts
+            linkparts = link.split()
+
+            if len(linkparts) != 2:
+                raise ValueError("chain components must contain 2 values")
+
+            if "equals" == linkparts[0].strip().lower():
+                # an equality
+                eqother = equations(linkparts[1].strip())
+            elif "rearrange" == linkparts[0].strip().lower():
+                # rearrange
+                varname = linkparts[1].strip().lower()
+
+                if eqother is not None:
+                    eq = eq.rearrange(varname, equal=eqother)
+                    eqother = None
+                else:
+                    eq = eq.rearrange(varname)
+            elif "substitute" == linkparts[0].strip().lower():
+                # substitute
+                subeqname = linkparts[1].strip().lower()
+                subeq = equations(subeqname)
+
+                eq = subeq.substitute(eq)
+
+        kwargs["parts"] = eq.parts
+
+    eq = EquationBase(**kwargs)  
 
     # update the equation docstring
     try:
@@ -99,6 +144,7 @@ class EquationBase:
         self.kwargs = deepcopy(kwargs)  # store copy of initial kwargs
 
         self.equation_name = kwargs.pop("equation")
+        self.variable = kwargs.pop("equation_variable")
 
         # a list of tuples containing parts of equation
         self.parts = kwargs.pop("parts")
@@ -292,7 +338,7 @@ class EquationBase:
 
         Parameters
         ----------
-        displaytype: string
+        displaytype: str
             By default this will return a string containing the LaTeX equation
             text (without bounding "$" symbols). If using a Jupyter Notebook
             this will show as a formatted LaTeX equation. Alternatively, set to
@@ -312,7 +358,7 @@ class EquationBase:
 
         # set defaults
         symrep = {symbols(key): val for key, val in self.rhs_latex_strings.items()}
-        symrep[symbols(self.equation_name)] = self.latex_name
+        symrep[symbols(self.variable)] = self.latex_name
 
         latexkwargs.setdefault("root_notation", True)
         latexkwargs.setdefault("fold_frac_powers", True)
@@ -466,17 +512,21 @@ class EquationBase:
         else:
             return value
 
-    def rearrange(self, newval, fidval=None):
+    def rearrange(self, newvar, fidval=None, equal=None):
         r"""
-        Rearrange the equation so that the new value is on the left hand side.
+        Rearrange the equation so that a different variable is on the left hand side,
+        i.e., solve the equation for the given variable.
 
         Parameters
         ----------
-        newval: str
+        newvar: str
             The variable should be rearranged to the LHS of the equation.
         fidval: float, Quantity
             The value to use for the original LHS value. If not given this
             will be based on the original fiducial values.
+        equal: EquationBase
+            You can pass another equation to set as equal to the current
+            equation before rearranging.
 
         Returns
         -------
@@ -498,8 +548,8 @@ class EquationBase:
             \dot{f}_{\rm rot} = \frac{1}{n^{1/2}} \left(\ddot{f}_{\rm rot} f_{\rm rot}\right)^{1/2}
         """
 
-        if newval not in self.var_names:
-            raise KeyError(f"{newval} is not allowed")
+        if newvar not in self.var_names:
+            raise KeyError(f"{newvar} is not allowed")
 
         if fidval is None:
             # use current fiducial values to get value of parameter being
@@ -508,10 +558,13 @@ class EquationBase:
         else:
             curval = fidval
 
+        # check whether equating to other equation
+        eq = Eq(equal.sympy.rhs, self.sympy.rhs) if isinstance(equal, EquationBase) else self.sympy
+
         # rearrange using solve (use the last value in solution in case two solutions
         # from sqrt). Expand out any variables with the same powers, so that they form
         # separate parts of the new equation
-        neweq = expand_power_base(solve(self.sympy, symbols(newval))[-1], force=True)
+        neweq = expand_power_base(solve(eq, symbols(newvar))[-1], force=True)
 
         newkwargs = deepcopy(self.kwargs)
 
@@ -519,18 +572,25 @@ class EquationBase:
         newkwargs["parts"] = self.generate_parts(neweq)
 
         newfiducial = newkwargs.pop("default_fiducial_values")
-        newfiducial.pop(newval)
+        newfiducial.pop(newvar)
         newfiducial[self.equation_name] = curval
 
+        if isinstance(equal, EquationBase):
+            newfiducial.update(equal.kwargs["default_fiducial_values"])
         newkwargs["default_fiducial_values"] = newfiducial
 
-        newkwargs["latex_string"] = ALLOWED_VARIABLES[newval]["latex_string"]
-        newkwargs["description"] = ALLOWED_VARIABLES[newval]["description"]
+        newkwargs["latex_string"] = ALLOWED_VARIABLES[newvar]["latex_string"]
+        newkwargs["description"] = ALLOWED_VARIABLES[newvar]["description"]
 
-        newkwargs["rhs_latex_strings"].pop(newval)
-        newkwargs["rhs_latex_strings"][self.equation_name] = self.latex_name
+        newkwargs["rhs_latex_strings"].pop(newvar)
+        
+        if not isinstance(equal, EquationBase):
+            newkwargs["rhs_latex_strings"][newvar] = self.latex_name
+        else:
+            newkwargs["rhs_latex_strings"].update(equal.kwargs["rhs_latex_strings"])
 
-        newkwargs["equation"] = newval  # reset the equation name
+        newkwargs["equation"] = newvar  # reset the equation name
+        newkwargs["equation_variable"] = newvar
 
         # create new EquationBase with updated constants and default fiducial values
         return EquationBase(**newkwargs)
@@ -583,12 +643,12 @@ class EquationBase:
 
         newkwargs = deepcopy(self.kwargs)
         newfiducial = newkwargs.pop("default_fiducial_values")
-        newfiducial.pop(other.equation_name)
+        newfiducial.pop(other.variable)
         newfiducial.update(other.default_fiducial_values)
 
         newkwargs["default_fiducial_values"] = newfiducial
 
-        newkwargs["rhs_latex_strings"].pop(other.equation_name)
+        newkwargs["rhs_latex_strings"].pop(other.variable)
         newkwargs["rhs_latex_strings"].update(other.rhs_latex_strings)
 
         newkwargs["parts"] = self.generate_parts(expand_power_base(neweq, force=True))
@@ -749,7 +809,7 @@ class EquationBase:
         if not hasattr(self, "_sympy"):
             eqstr = " * ".join([f"({c[0]})**({c[1]})" for c in self.parts])
             sympeq = sympify(eqstr)
-            self._sympy = Eq(symbols(self.equation_name), sympeq)
+            self._sympy = Eq(symbols(self.variable), sympeq)
 
         return self._sympy
 
