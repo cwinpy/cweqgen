@@ -573,7 +573,12 @@ class EquationBase:
             curval = fidval
 
         # check whether equating to other equation
-        eq = Eq(equal.sympy.rhs, self.sympy.rhs) if isinstance(equal, EquationBase) else self.sympy
+        if isinstance(equal, EquationBase):
+            if self.variable != equal.variable:
+                raise ValueError("Equation can only be equated if the lhs variable is the same")
+            eq = Eq(equal.sympy.rhs, self.sympy.rhs)
+        else:
+            eq = self.sympy
 
         # rearrange using solve (use the last value in solution in case two solutions
         # from sqrt). Expand out any variables with the same powers, so that they form
