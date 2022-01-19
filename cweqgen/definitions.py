@@ -1,5 +1,6 @@
 import astropy.units as u
 from astropy.units.quantity import Quantity
+from numpy import pi
 
 from .converters import *
 
@@ -47,11 +48,31 @@ ALLOWED_VARIABLES = {
         "units": "Hz",
         "sign": ">= 0",
     },
+    "angularrotationfrequency": {
+        "description": "Source angular rotational frequency",
+        "latex_string": r"\Omega_{\rm rot}",
+        "aliases": [
+            "angularrotationfrequency",
+            "omegarot",
+            "omrot",
+            "omega0rot",
+            "om0rot" "Ω",
+        ],
+        "units": "rad / s",
+        "sign": ">= 0",
+    },
     "gwfrequency": {
         "description": "Gravitational-wave frequency",
         "latex_string": r"f_{\rm gw}",
         "aliases": ["gwfrequency", "fgw", "f0gw"],
         "units": "Hz",
+        "sign": ">= 0",
+    },
+    "angulargwfrequency": {
+        "description": "Angular gravitational-wave frequency",
+        "latex_string": r"\Omega_{\rm gw}",
+        "aliases": ["angulargwfrequency", "omegagw", "omgw", "omega0gw", "om0gw"],
+        "units": "rad / s",
         "sign": ">= 0",
     },
     "rotationperiod": {
@@ -68,11 +89,25 @@ ALLOWED_VARIABLES = {
         "units": "Hz / s",
         "sign": None,
     },
+    "angularrotationfdot": {
+        "description": "Source angular rotational frequency derivative",
+        "latex_string": r"\dot{\Omega}_{\rm rot}",
+        "aliases": ["angularrotationfdot", "omrotdot", "om1rot", "om1spin"],
+        "units": "rad / s^2",
+        "sign": None,
+    },
     "gwfdot": {
         "description": "Gravitational-wave frequency derivative",
         "latex_string": r"\dot{f}_{\rm gw}",
         "aliases": ["gwfdot", "fdotgw", "f1gw"],
         "units": "Hz / s",
+        "sign": None,
+    },
+    "angulargwfdot": {
+        "description": "Gravitational-wave angular frequency derivative",
+        "latex_string": r"\dot{\Omega}_{\rm gw}",
+        "aliases": ["angulargwfdot", "omgwdot", "om1gw"],
+        "units": "rad / s^2",
         "sign": None,
     },
     "rotationpdot": {
@@ -127,10 +162,17 @@ ALLOWED_VARIABLES = {
     "luminosity": {
         "description": "The luminosity of a source",
         "latex_string": "L",
-        "aliases": ["luminosity", "l", "spindownluminosity", "gwluminosity", "lgw", "lsd"],
+        "aliases": [
+            "luminosity",
+            "l",
+            "spindownluminosity",
+            "gwluminosity",
+            "lgw",
+            "lsd",
+        ],
         "units": "W",
         "sign": ">= 0",
-    }
+    },
 }
 
 
@@ -150,7 +192,7 @@ class EqDict(dict):
         try:
             self[key]["variable"] = subdict["variable"]
         except KeyError:
-            raise KeyError("Equation dictionary must contain a 'variable'")   
+            raise KeyError("Equation dictionary must contain a 'variable'")
 
         try:
             self[key]["latex_string"] = subdict["latex_string"]
@@ -598,4 +640,73 @@ For the optional input keyword parameters below a range of aliases, as given in
 :keyword float or ~astropy.units.quantity.Quantity rotationpdot: The first derivative of the rotation period of a pulsar. If given as a float units of s/s are assumed. The default value is :math:`{rotationpdot}`.
 :keyword float or ~astropy.units.quantity.Quantity brakingindex: The braking index of the pulsar. The default value is :math:`{brakingindex}`.
 """,
+}
+
+
+SUPPLEMENTAL_EQUATIONS = EqDict()
+
+SUPPLEMENTAL_EQUATIONS["rotationfrequency_to_period"] = {
+    "description": "The rotation frequency of the pulsar in terms of the rotation period",
+    "variable": "rotationfrequency",
+    "latex_string": r"f_{\rm rot}",
+    "default_fiducial_values": {
+        "rotationperiod": 0.01 * u.s,
+    },
+    "parts": [
+        ("rotationperiod", "-1"),
+    ],
+}
+
+SUPPLEMENTAL_EQUATIONS["gwfrequency_to_rotationfrequency"] = {
+    "description": "The GW frequency of the pulsar in terms of the rotation frequency",
+    "variable": "gwfrequency",
+    "latex_string": r"f_{\rm gw}",
+    "default_fiducial_values": {
+        "rotationfrequency": 100 * u.Hz,
+    },
+    "parts": [
+        ("1/2", "1"),
+        ("rotationfrequency", "1"),
+    ],
+}
+
+SUPPLEMENTAL_EQUATIONS["angulargwfrequency_to_gwfrequency"] = {
+    "description": "The angular GW frequency of the pulsar in terms of the GW frequency",
+    "variable": "angulargwfrequency",
+    "latex_string": r"\Omega_{\rm gw}",
+    "default_fiducial_values": {
+        "gwfrequency": 200 * u.Hz,
+    },
+    "parts": [
+        ("2", "1"),
+        ("pi", "1"),
+        ("gwfrequency", "1"),
+    ],
+}
+
+SUPPLEMENTAL_EQUATIONS["angularrotationfrequency_to_angulargwfrequency"] = {
+    "description": "The angular rotation frequency of the pulsar in terms of the angular GW frequency",
+    "variable": "angularrotationfrequency",
+    "latex_string": r"\Omega_{\rm rot}",
+    "default_fiducial_values": {
+        "angulargwfrequency": 2 * pi * 200 * u.rad / u.s,
+    },
+    "parts": [
+        ("1/2", "1"),
+        ("angulargwfrequency", "1"),
+    ],
+}
+
+SUPPLEMENTAL_EQUATIONS["rotationperiod_to_angularrotationfrequency"] = {
+    "description": "The rotation period of the pulsar in terms of the angular rotation frequency",
+    "variable": "rotationperiod",
+    "latex_string": "P",
+    "default_fiducial_values": {
+        "angularrotationfrequency": 2 * pi * 100 * u.rad / u.s,
+    },
+    "parts": [
+        ("2", "1"),
+        ("pi", "1"),
+        ("angularrotationfrequency", "-1"),
+    ],
 }
