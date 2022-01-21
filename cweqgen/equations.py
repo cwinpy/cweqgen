@@ -375,10 +375,10 @@ class EquationBase:
         mode = latexkwargs.pop("mode", "plain")
         delim = "$" if displaytype == "matplotlib" or mode == "inline" else ""
 
-        if seq_const != 1:
+        if abs(seq_const) != 1:
             latex_equation_const = latex(seq_const, **latexkwargs)
         else:
-            latex_equation_const = ""
+            latex_equation_const = "" if seq_const == 1 else "-"
 
         latexkwargs["root_notation"] = False
         latexkwargs.setdefault("symbol_names", symrep)
@@ -879,7 +879,7 @@ class EquationBase:
                     break
                 else:
                     parts.append((arg.name, str(pow)))
-            elif str(arg) != "1" and str(arg) != "-1":
+            elif str(arg) != "1":
                 parts.append((str(arg), "1"))
 
         return parts
@@ -958,9 +958,6 @@ class EquationBase:
         while True:
             # loop over conversions until finished
             for eqn in chaindot[i][2]:
-                print(neweqn)
-                print(neweqn.parts)
-                print(eqn.variable)
                 if neweqn is None and eqn.variable in starteqn.var_names:
                     neweqn = starteqn.substitute(eqn)
                 elif eqn.variable in neweqn.var_names:
