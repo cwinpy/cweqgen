@@ -532,7 +532,10 @@ class EquationBase:
 
         if isinstance(value, Quantity):
             if not kwargs.get("value", False):
-                return value.si.decompose()
+                if ALLOWED_VARIABLES[self.variable]["units"] is not None:
+                    return value.to(ALLOWED_VARIABLES[self.variable]["units"])
+                else:
+                    return value.si.decompose()
             else:
                 # return as values rather than Quantity object
                 return value.si.decompose().value
@@ -937,7 +940,11 @@ class EquationBase:
 
         # the conversion for frequency derivative equations to loop through
         chaindot = [
-            ("rotationfrequency", equations("rotationfdot_to_period"))
+            ("rotationperiod", "rotationpdot", [equations("rotationpdot_to_angularrotationfdot"), chain[0][1]]),
+            ("angularrotationfrequency", "angularrotationfdot", [equations("angularrotationfdot_to_angulargwfdot"), chain[1][1]]),
+            ("angulargwfrequency", "angulargwfdot", [equations("angulargwfdot_to_gwfdot"), chain[2][1]]),
+            ("gwfrequency", "gwfdot", [equations("gwfdot_to_rotationfdot"), chain[3][1]]),
+            ("rotationfrequency", "rotationfdot", [equations("rotationfdot_to_period"), chain[4][1]]),
         ]
 
         # find the index of the end point
@@ -945,15 +952,19 @@ class EquationBase:
 
         # find the starting conversion equation
         for i in range(len(chaindot)):
-            if chaindot[i][0] in starteqn.var_names:
+            if chaindot[i][1] in starteqn.var_names:
                 break
 
         while True:
             # loop over conversions until finished
-            if neweqn is None:
-                neweqn = starteqn.substitute(chaindot[i][1])
-            else:
-                neweqn = neweqn.substitute(chaindot[i][1])
+            for eqn in chaindot[i][2]:
+                print(neweqn)
+                print(neweqn.parts)
+                print(eqn.variable)
+                if neweqn is None and eqn.variable in starteqn.var_names:
+                    neweqn = starteqn.substitute(eqn)
+                elif eqn.variable in neweqn.var_names:
+                    neweqn = neweqn.substitute(eqn)
 
             i = (i + 1) % len(chaindot)
             if i == endidxdot:
@@ -974,7 +985,28 @@ class EquationBase:
         Convert equation to one containing angular rotation frequency.
         """
 
-        return self._fconverter(self, "angularrotationfrequency")
+        return self._frequency_converter(self, "angularrotationfrequency")
+    
+    def to_angular_gw_frequency(self):
+        """
+        Convert equation to one containing angular gravitational-wave frequency.
+        """
+
+        return self._frequency_converter(self, "angulargwfrequency")
+
+    def to_gw_frequency(self):
+        """
+        Convert equation to one containing gravitational-wave frequency.
+        """
+
+        return self._frequency_converter(self, "gwfrequency")
+
+    def to_rotation_frequency(self):
+        """
+        Convert equation to one containing rotation frequency.
+        """
+
+        return self._frequency_converter(self, "rotationfrequency")
 
 
 class EquationLaTeXString:

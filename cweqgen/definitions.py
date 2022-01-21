@@ -126,7 +126,7 @@ ALLOWED_VARIABLES = {
     },
     "gwfdot": {
         "description": "Gravitational-wave second frequency derivative",
-        "latex_string": r"\ddot{f}_{\rm gw}",
+        "latex_string": r"\dot{f}_{\rm gw}",
         "aliases": ["gwfddot", "fddotgw", "f2gw"],
         "units": "Hz / s / s",
         "sign": None,
@@ -665,7 +665,7 @@ SUPPLEMENTAL_EQUATIONS["gwfrequency_to_rotationfrequency"] = {
         "rotationfrequency": 100 * u.Hz,
     },
     "parts": [
-        ("1/2", "1"),
+        ("2", "1"),
         ("rotationfrequency", "1"),
     ],
 }
@@ -723,5 +723,61 @@ SUPPLEMENTAL_EQUATIONS["rotationfdot_to_period"] = {
         ("-1", "1"),
         ("rotationpdot", "1"),
         ("rotationperiod", "-2"),
+    ],
+}
+
+SUPPLEMENTAL_EQUATIONS["rotationpdot_to_angularrotationfdot"] = {
+    "description": "The rotation period derivative in terms of angular rotation frequency and its derivative",
+    "variable": "rotationpdot",
+    "latex_string": r"\dot{P}_{\rm rot}",
+    "default_fiducial_values": {
+        "angularrotationfrequency": 2 * pi * 100 * u.rad / u.s,
+        "angularrotationfdot": -2 * pi * 1e-11 * u.rad / (u.s ** 2),
+    },
+    "parts": [
+        ("-2", "1"),
+        ("pi", "1"),
+        ("angularrotationfdot", "1"),
+        ("angularrotationfrequency", "-2"),
+    ],
+}
+
+SUPPLEMENTAL_EQUATIONS["angularrotationfdot_to_angulargwfdot"] = {
+    "description": "The angular rotation frequency derivative in terms of angular gravitational-wave frequency derivative",
+    "variable": "angularrotationfdot",
+    "latex_string": r"\dot{\Omega}_{\rm rot}",
+    "default_fiducial_values": {
+        "angulargwfdot": 4 * pi * 100 * u.rad / (u.s ** 2),
+    },
+    "parts": [
+        ("1/2", "1"),
+        ("angulargwfdot", "1"),
+    ],
+}
+
+SUPPLEMENTAL_EQUATIONS["angulargwfdot_to_gwfdot"] = {
+    "description": "The angular gravitational-wave frequency derivative in terms of gravitational-wave frequency derivative",
+    "variable": "angulargwfdot",
+    "latex_string": r"\dot{\Omega}_{\rm gw}",
+    "default_fiducial_values": {
+        "gwfdot": 2 * 100 * u.Hz / u.s,
+    },
+    "parts": [
+        ("2", "1"),
+        ("pi", "1"),
+        ("gwfdot", "1"),
+    ],
+}
+
+SUPPLEMENTAL_EQUATIONS["gwfdot_to_rotationfdot"] = {
+    "description": "The angular rotation frequency derivative in terms of angular gravitational-wave frequency derivative",
+    "variable": "gwfdot",
+    "latex_string": r"\dot{f}_{\rm gw}",
+    "default_fiducial_values": {
+        "rotationfdot": 100 * u.Hz / u.s,
+    },
+    "parts": [
+        ("2", "1"),
+        ("rotationfdot", "1"),
     ],
 }
