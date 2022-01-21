@@ -710,3 +710,18 @@ SUPPLEMENTAL_EQUATIONS["rotationperiod_to_angularrotationfrequency"] = {
         ("angularrotationfrequency", "-1"),
     ],
 }
+
+SUPPLEMENTAL_EQUATIONS["rotationfdot_to_period"] = {
+    "description": "The rotation frequency derivative in terms of period and period derivative",
+    "variable": "rotationfdot",
+    "latex_string": r"\dot{f}_{\rm rot}",
+    "default_fiducial_values": {
+        "rotationperiod": 0.01 * u.s,
+        "rotationpdot": 1e-15 * u.s / u.s,
+    },
+    "parts": [
+        ("-1", "1"),
+        ("rotationpdot", "1"),
+        ("rotationperiod", "-2"),
+    ],
+}

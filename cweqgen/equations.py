@@ -903,7 +903,7 @@ class EquationBase:
             requested variable to parameterise it.
         """
 
-        # the conversion equations to loop through
+        # the conversion for frequency equations to loop through
         chain = [
             ("rotationperiod", equations("rotationperiod_to_angularrotationfrequency")),
             (
@@ -933,6 +933,30 @@ class EquationBase:
 
             i = (i + 1) % len(chain)
             if i == endidx:
+                break
+
+        # the conversion for frequency derivative equations to loop through
+        chaindot = [
+            ("rotationfrequency", equations("rotationfdot_to_period"))
+        ]
+
+        # find the index of the end point
+        endidxdot = ([link[0] for link in chaindot]).index(end)
+
+        # find the starting conversion equation
+        for i in range(len(chaindot)):
+            if chaindot[i][0] in starteqn.var_names:
+                break
+
+        while True:
+            # loop over conversions until finished
+            if neweqn is None:
+                neweqn = starteqn.substitute(chaindot[i][1])
+            else:
+                neweqn = neweqn.substitute(chaindot[i][1])
+
+            i = (i + 1) % len(chaindot)
+            if i == endidxdot:
                 break
 
         return neweqn
