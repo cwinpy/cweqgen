@@ -14,6 +14,7 @@ from astropy.constants import G, c
 from matplotlib import pyplot as plt
 
 from sympy import (
+    Abs,
     Add,
     Eq,
     expand_power_base,
@@ -301,7 +302,7 @@ class EquationBase:
             if not isinstance(val, Quantity):
                 val = Quantity(val)
 
-            funcargs[key] = np.abs(val.si)
+            funcargs[key] = np.abs(val.si) if ALLOWED_VARIABLES[key]["sign"] == ">= 0" else val.si
 
             try:
                 arglens.append(len(funcargs[key]))
@@ -361,7 +362,10 @@ class EquationBase:
         """
 
         # use powsimp to put values with common exponents together
-        seq_const = powsimp(self.sympy_const, force=True)
+        if ALLOWED_VARIABLES[self.variable]["sign"] == ">= 0" and self.constant < 0:
+            seq_const = powsimp(-1 * self.sympy_const, force=True)
+        else:
+            seq_const = powsimp(self.sympy_const, force=True)
         seq_var = powsimp(self.sympy_var, force=True)
 
         # set defaults
@@ -378,7 +382,7 @@ class EquationBase:
         if abs(seq_const) != 1:
             latex_equation_const = latex(seq_const, **latexkwargs)
         else:
-            latex_equation_const = "" if seq_const == 1 else "-"
+            latex_equation_const = "" if seq_const == 1 or ALLOWED_VARIABLES[self.variable]["sign"] == ">= 0" else "-"
 
         latexkwargs["root_notation"] = False
         latexkwargs.setdefault("symbol_names", symrep)
@@ -529,6 +533,9 @@ class EquationBase:
         fid = self.calculate_fiducial(**kwargs)
 
         value = const * fid
+
+        if ALLOWED_VARIABLES[self.variable]["sign"] == ">= 0":
+            value = np.abs(value)
 
         if isinstance(value, Quantity):
             if not kwargs.get("value", False):
@@ -768,60 +775,62 @@ class EquationBase:
 
             # get variable names
             self._var_names = self._gather_var_argnames(self.sympy.rhs)
-
-            for arg in self.sympy.rhs.args:
-                if not arg.is_constant():
-                    if isinstance(arg, Symbol):
-                        name = arg.name
-                    elif isinstance(arg, (Pow, Add)):
-                        name = self._gather_var_argnames(arg)
-                        if len(name) > 1:
-                            raise ValueError(
-                                "Currently we cannot deal with Pow or Add terms containing multiple variables"
-                            )
-                        elif len(name) == 1:
-                            name = name[0]
-                        else:
-                            name = str(arg.base)
-                    else:
-                        raise TypeError("")
-
-                    if name not in CONSTANTS:
-                        self._sympy_var *= arg
-
-                        # store each part
-                        self._sympy_var_parts[name] = arg
-
-                        # create functions for each part of the equation
-                        self._sympy_var_lambda[name] = lambdify(
-                            [symbols(name)],
-                            arg,
-                            modules=["numpy"],
-                        )
+            self._gather_var_parts(self.sympy.rhs.args)
 
         return self._sympy_var
 
     @staticmethod
-    def _gather_var_argnames(args):
+    def _gather_var_argnames(eqn):
         """
         Find the variable names in an equation.
         """
 
-        argnames = []
-        cargs = args.args
-
-        for arg in cargs:
-            nextargs = arg.args
-            if isinstance(arg, Symbol):
-                if arg.name not in CONSTANTS:
-                    argnames.append(arg.name)
-
-            if len(nextargs) == 0:
-                continue
-            else:
-                argnames.extend(EquationBase._gather_var_argnames(arg))
+        argnames = [arg.name for arg in eqn.atoms() if isinstance(arg, Symbol)]
+        for arg in list(argnames):
+            if arg in CONSTANTS:
+                argnames.remove(arg)
 
         return argnames
+
+    def _gather_var_parts(self, args):
+        """
+        Recursively get all the separate parts of the equation
+        """
+        
+        for arg in args:
+            if not arg.is_constant():
+                if isinstance(arg, Symbol):
+                    name = arg.name
+                elif isinstance(arg, (Abs, Add, Pow)):
+                    name = self._gather_var_argnames(arg)
+                    if len(name) > 1:
+                        # recursively gather parts
+                        if isinstance(arg, Abs):
+                            abseqn = expand_power_base(arg.args[0], force=True).args
+                        else:
+                            abseqn = expand_power_base(arg, force=True).args
+
+                        self._gather_var_parts(abseqn)
+                        continue
+                    elif len(name) == 1:
+                        name = name[0]
+                    else:
+                        name = str(arg.base)
+                else:
+                    raise TypeError("Value must be a Symbol, Pow, Add or Abs")
+
+                if name not in CONSTANTS:
+                    self._sympy_var *= arg
+
+                    # store each part
+                    self._sympy_var_parts[name] = arg
+
+                    # create functions for each part of the equation
+                    self._sympy_var_lambda[name] = lambdify(
+                        [symbols(name)],
+                        arg,
+                        modules=["numpy"],
+                    )
 
     @property
     def var_names(self):
@@ -864,7 +873,7 @@ class EquationBase:
         parts = []
 
         for arg in eqn.args:
-            if isinstance(arg, Mul):
+            if isinstance(arg, (Abs, Mul)):
                 parts.extend(EquationBase.generate_parts(arg))
             elif isinstance(arg, Pow):
                 if isinstance(arg.base, Pow):
