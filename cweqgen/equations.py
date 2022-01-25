@@ -302,7 +302,9 @@ class EquationBase:
             if not isinstance(val, Quantity):
                 val = Quantity(val)
 
-            funcargs[key] = np.abs(val.si) if ALLOWED_VARIABLES[key]["sign"] == ">= 0" else val.si
+            funcargs[key] = (
+                np.abs(val.si) if ALLOWED_VARIABLES[key]["sign"] == ">= 0" else val.si
+            )
 
             try:
                 arglens.append(len(funcargs[key]))
@@ -382,7 +384,11 @@ class EquationBase:
         if abs(seq_const) != 1:
             latex_equation_const = latex(seq_const, **latexkwargs)
         else:
-            latex_equation_const = "" if seq_const == 1 or ALLOWED_VARIABLES[self.variable]["sign"] == ">= 0" else "-"
+            latex_equation_const = (
+                ""
+                if seq_const == 1 or ALLOWED_VARIABLES[self.variable]["sign"] == ">= 0"
+                else "-"
+            )
 
         latexkwargs["root_notation"] = False
         latexkwargs.setdefault("symbol_names", symrep)
@@ -796,7 +802,7 @@ class EquationBase:
         """
         Recursively get all the separate parts of the equation
         """
-        
+
         for arg in args:
             if not arg.is_constant():
                 if isinstance(arg, Symbol):
@@ -827,9 +833,7 @@ class EquationBase:
 
                     # create functions for each part of the equation
                     self._sympy_var_lambda[name] = lambdify(
-                        [symbols(name)],
-                        arg,
-                        modules=["numpy"],
+                        [symbols(name)], arg, modules=["numpy"]
                     )
 
     @property
@@ -949,11 +953,31 @@ class EquationBase:
 
         # the conversion for frequency derivative equations to loop through
         chaindot = [
-            ("rotationperiod", "rotationpdot", [equations("rotationpdot_to_angularrotationfdot"), chain[0][1]]),
-            ("angularrotationfrequency", "angularrotationfdot", [equations("angularrotationfdot_to_angulargwfdot"), chain[1][1]]),
-            ("angulargwfrequency", "angulargwfdot", [equations("angulargwfdot_to_gwfdot"), chain[2][1]]),
-            ("gwfrequency", "gwfdot", [equations("gwfdot_to_rotationfdot"), chain[3][1]]),
-            ("rotationfrequency", "rotationfdot", [equations("rotationfdot_to_period"), chain[4][1]]),
+            (
+                "rotationperiod",
+                "rotationpdot",
+                [equations("rotationpdot_to_angularrotationfdot"), chain[0][1]],
+            ),
+            (
+                "angularrotationfrequency",
+                "angularrotationfdot",
+                [equations("angularrotationfdot_to_angulargwfdot"), chain[1][1]],
+            ),
+            (
+                "angulargwfrequency",
+                "angulargwfdot",
+                [equations("angulargwfdot_to_gwfdot"), chain[2][1]],
+            ),
+            (
+                "gwfrequency",
+                "gwfdot",
+                [equations("gwfdot_to_rotationfdot"), chain[3][1]],
+            ),
+            (
+                "rotationfrequency",
+                "rotationfdot",
+                [equations("rotationfdot_to_period"), chain[4][1]],
+            ),
         ]
 
         # find the index of the end point
@@ -978,41 +1002,48 @@ class EquationBase:
 
         return neweqn
 
-    def to_period(self):
+    def to(self, newvariable):
         """
-        If an equation contains frequency/frequency derivative parameters then
-        convert into period/period derivative parameters.
+        Return a new version of the equation in terms of a new variable.
+        Currently this is designed to convert between frequency-like and
+        frequency first derivative parameters (it does not do higher frequency
+        derivatives), e.g., converting an equation from using frequency and
+        frequency derivative, to one using period and period derivative.
+
+        Parameters
+        ----------
+        newvariable: str
+            The new parameterisation of the equation. This can be one of:
+            "rotationfrequency", "rotationperiod", "gwfrequency",
+            "angularrotationfrequency", or "angulargwfrequency" (or any of the
+            allowed aliases for these in
+            :obj:`~cwinpy.definition.ALLOWED_VARIABLES`). If the equation
+            contains equivalents of the variable and/or their first frequency
+            derivative then both will be converted.
+
+        Returns
+        -------
+        neweqn: EquationBase
+            The equation in the new parameterisation.
         """
 
-        return self._frequency_converter(self, "rotationperiod")
+        # find the variable name
+        for var in ALLOWED_VARIABLES:
+            if newvariable in ALLOWED_VARIABLES[var]["aliases"]:
+                break
+        else:
+            raise ValueError(f"{newvariable} is not a recognised variable name.")
 
-    def to_angular_rotation_frequency(self):
-        """
-        Convert equation to one containing angular rotation frequency.
-        """
+        if var not in [
+            "rotationfrequency",
+            "rotationperiod",
+            "gwfrequency",
+            "angularrotationfrequency",
+            "angulargwfrequency",
+        ]:
+            raise ValueError(f"No conversion is currently available for {var}")
 
-        return self._frequency_converter(self, "angularrotationfrequency")
-    
-    def to_angular_gw_frequency(self):
-        """
-        Convert equation to one containing angular gravitational-wave frequency.
-        """
-
-        return self._frequency_converter(self, "angulargwfrequency")
-
-    def to_gw_frequency(self):
-        """
-        Convert equation to one containing gravitational-wave frequency.
-        """
-
-        return self._frequency_converter(self, "gwfrequency")
-
-    def to_rotation_frequency(self):
-        """
-        Convert equation to one containing rotation frequency.
-        """
-
-        return self._frequency_converter(self, "rotationfrequency")
+        return self._frequency_converter(self, var)
 
 
 class EquationLaTeXString:
@@ -1061,18 +1092,9 @@ class EquationLaTeXToImage:
         self.fig, self.ax = plt.subplots(1)
 
         try:
-            t = self.ax.text(
-                0.05,
-                0.5,
-                self.text,
-                usetex=True,
-            )
+            t = self.ax.text(0.05, 0.5, self.text, usetex=True)
         except RuntimeError:
-            t = self.ax.text(
-                0.0,
-                0.5,
-                self.text,
-            )
+            t = self.ax.text(0.0, 0.5, self.text)
         self.ax.axis("off")
 
         # crop figure to tight around the text
