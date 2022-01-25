@@ -18,6 +18,8 @@ from sympy import (
     Add,
     Eq,
     expand_power_base,
+    I,
+    Id,
     lambdify,
     latex,
     Mul,
@@ -364,10 +366,7 @@ class EquationBase:
         """
 
         # use powsimp to put values with common exponents together
-        if ALLOWED_VARIABLES[self.variable]["sign"] == ">= 0" and self.constant < 0:
-            seq_const = powsimp(-1 * self.sympy_const, force=True)
-        else:
-            seq_const = powsimp(self.sympy_const, force=True)
+        seq_const = powsimp(self.sympy_const, force=True)
         seq_var = powsimp(self.sympy_var, force=True)
 
         # set defaults
@@ -735,7 +734,26 @@ class EquationBase:
 
                     if name in CONSTANTS:
                         sympy_const_unit_values[name] = CONSTANTS[name]
+                        
+                        if ALLOWED_VARIABLES[self.variable]["sign"] == ">= 0":
+                            # make sure values are positive
+                            if isinstance(arg, Pow):
+                                if str(arg.args[0])[0] == "-":
+                                    arg = (-1 * arg.args[0]) ** arg.args[1]
+                            else:
+                                if str(arg)[0] == "-":
+                                    arg = -1 * arg
+
                         self._sympy_const *= arg
+
+            # make sure constant isn't imaginary
+            copyconst = 1
+            if self._sympy_const != 1:
+                for arg in self._sympy_const.args:
+                    if arg != I:
+                        copyconst *= arg
+                if copyconst != 1:
+                    self._sympy_const = copyconst
 
             # evaluate constant by creating a lamdified function
             if self._sympy_const != 1:
@@ -826,6 +844,13 @@ class EquationBase:
                     raise TypeError("Value must be a Symbol, Pow, Add or Abs")
 
                 if name not in CONSTANTS:
+                    # set variables to abs if required
+                    if ALLOWED_VARIABLES[name]["sign"] is None and ALLOWED_VARIABLES[self.variable]["sign"] == ">= 0":
+                        if isinstance(arg, Pow):
+                            arg = Abs(arg.args[0]) ** arg.args[1]
+                        else:
+                            arg = Abs(arg)
+                    
                     self._sympy_var *= arg
 
                     # store each part
@@ -878,9 +903,12 @@ class EquationBase:
 
         for arg in eqn.args:
             if isinstance(arg, (Abs, Mul)):
-                parts.extend(EquationBase.generate_parts(arg))
+                # if Abs value contains multiple symbols remove the Abs for simplicity
+                if isinstance(arg, Abs) and len(arg.atoms()) > 1:
+                    arg = arg.replace(Abs, Id)
+                parts.extend(EquationBase.generate_parts(arg, pow=pow))
             elif isinstance(arg, Pow):
-                if isinstance(arg.base, Pow):
+                if isinstance(arg.base, (Abs, Mul, Pow)):
                     exp = pow * arg.exp
                     parts.extend(EquationBase.generate_parts(arg.base, pow=exp))
                 else:

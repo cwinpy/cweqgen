@@ -331,7 +331,7 @@ EQN_DEFINITIONS["spindownluminosity"] = {
         ("pi", "2"),
         ("momentofinertia", "1"),
         ("rotationfrequency", "1"),
-        ("Abs(rotationfdot)", "1"),
+        ("rotationfdot", "1"),
     ],
     "alternative_variables": [
         "gwfrequency",
