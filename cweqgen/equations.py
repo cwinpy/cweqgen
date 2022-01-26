@@ -14,9 +14,12 @@ from astropy.constants import G, c
 from matplotlib import pyplot as plt
 
 from sympy import (
+    Abs,
     Add,
     Eq,
     expand_power_base,
+    I,
+    Id,
     lambdify,
     latex,
     Mul,
@@ -27,8 +30,9 @@ from sympy import (
     symbols,
     sympify,
 )
+from sympy.core.function import _coeff_isneg
 
-from .definitions import ALLOWED_VARIABLES, EQN_DEFINITIONS
+from .definitions import ALLOWED_VARIABLES, EQN_DEFINITIONS, SUPPLEMENTAL_EQUATIONS
 
 #: dictionary of constants
 CONSTANTS = {"G": G, "c": c, "pi": pi}
@@ -46,11 +50,17 @@ def equations(equation, **kwargs):
     class itself.
     """
 
-    if equation.lower() not in EQN_DEFINITIONS:
+    if equation.lower() not in list(EQN_DEFINITIONS.keys()) + list(
+        SUPPLEMENTAL_EQUATIONS.keys()
+    ):
         raise KeyError(f"Equation '{equation}' is not currently defined")
 
     # set values for required equation
-    eqinfo = EQN_DEFINITIONS[equation.lower()]
+    eqinfo = (
+        EQN_DEFINITIONS[equation.lower()]
+        if equation.lower() in EQN_DEFINITIONS
+        else SUPPLEMENTAL_EQUATIONS[equation.lower()]
+    )
     kwargs["equation"] = equation.lower()
     kwargs["equation_variable"] = eqinfo["variable"]
     kwargs["default_fiducial_values"] = eqinfo["default_fiducial_values"]
@@ -82,7 +92,7 @@ def equations(equation, **kwargs):
     # generate equation
     if parts is not None:
         kwargs["parts"] = parts
-        
+
     else:
         chain = eqinfo["chain"]
 
@@ -121,7 +131,7 @@ def equations(equation, **kwargs):
 
         kwargs["parts"] = eq.parts
 
-    eq = EquationBase(**kwargs)  
+    eq = EquationBase(**kwargs)
 
     # update the equation docstring
     try:
@@ -190,7 +200,9 @@ class EquationBase:
 
         values = {}
 
-        for key in list(self.default_fiducial_values.keys()) + self.alternative_variables:
+        for key in (
+            list(self.default_fiducial_values.keys()) + self.alternative_variables
+        ):
             value = self.check_for_alias(key, **kwargs)
             if value is not None:
                 values[key] = value
@@ -293,7 +305,9 @@ class EquationBase:
             if not isinstance(val, Quantity):
                 val = Quantity(val)
 
-            funcargs[key] = np.abs(val.si)
+            funcargs[key] = (
+                np.abs(val.si) if ALLOWED_VARIABLES[key]["sign"] == ">= 0" else val.si
+            )
 
             try:
                 arglens.append(len(funcargs[key]))
@@ -367,10 +381,14 @@ class EquationBase:
         mode = latexkwargs.pop("mode", "plain")
         delim = "$" if displaytype == "matplotlib" or mode == "inline" else ""
 
-        if seq_const != 1:
+        if abs(seq_const) != 1:
             latex_equation_const = latex(seq_const, **latexkwargs)
         else:
-            latex_equation_const = ""
+            latex_equation_const = (
+                ""
+                if seq_const == 1 or ALLOWED_VARIABLES[self.variable]["sign"] == ">= 0"
+                else "-"
+            )
 
         latexkwargs["root_notation"] = False
         latexkwargs.setdefault("symbol_names", symrep)
@@ -447,7 +465,13 @@ class EquationBase:
 
         for key in self.var_names:
             arg = self._sympy_var_parts[key]
-            varlatex = self.rhs_latex_strings[key] if not isinstance(arg, Pow) else latex(arg.base, symbol_names={symbols(key): self.rhs_latex_strings[key]})
+            varlatex = (
+                self.rhs_latex_strings[key]
+                if not isinstance(arg, Pow)
+                else latex(
+                    arg.base, symbol_names={symbols(key): self.rhs_latex_strings[key]}
+                )
+            )
 
             # get exponent
             exp = 1 if not isinstance(arg, Pow) else Fraction(*arg.exp.as_numer_denom())
@@ -461,7 +485,9 @@ class EquationBase:
 
             if exp != 1:
                 # evaluate base for cases such as args being (n + 1)^x
-                val = float(arg.base.subs([(symbols(key), val.value)]).evalf()) * val.unit
+                val = (
+                    float(arg.base.subs([(symbols(key), val.value)]).evalf()) * val.unit
+                )
 
             if exp < 0:
                 numerator = val.to_string(precision=(dp + 1), format="latex").replace(
@@ -514,9 +540,15 @@ class EquationBase:
 
         value = const * fid
 
+        if ALLOWED_VARIABLES[self.variable]["sign"] == ">= 0":
+            value = np.abs(value)
+
         if isinstance(value, Quantity):
             if not kwargs.get("value", False):
-                return value.si.decompose()
+                if ALLOWED_VARIABLES[self.variable]["units"] is not None:
+                    return value.to(ALLOWED_VARIABLES[self.variable]["units"])
+                else:
+                    return value.si.decompose()
             else:
                 # return as values rather than Quantity object
                 return value.si.decompose().value
@@ -575,7 +607,9 @@ class EquationBase:
         # check whether equating to other equation
         if isinstance(equal, EquationBase):
             if self.variable != equal.variable:
-                raise ValueError("Equation can only be equated if the lhs variable is the same")
+                raise ValueError(
+                    "Equation can only be equated if the lhs variable is the same"
+                )
             eq = Eq(equal.sympy.rhs, self.sympy.rhs)
         else:
             eq = self.sympy
@@ -602,7 +636,7 @@ class EquationBase:
         newkwargs["description"] = ALLOWED_VARIABLES[newvar]["description"]
 
         newkwargs["rhs_latex_strings"].pop(newvar)
-        
+
         if not isinstance(equal, EquationBase):
             newkwargs["rhs_latex_strings"][self.variable] = self.latex_name
         else:
@@ -701,10 +735,24 @@ class EquationBase:
 
                     if name in CONSTANTS:
                         sympy_const_unit_values[name] = CONSTANTS[name]
+
+                        if ALLOWED_VARIABLES[self.variable]["sign"] == ">= 0":
+                            # make sure values are positive
+                            if isinstance(arg, Pow):
+                                if _coeff_isneg(arg.args[0]):
+                                    arg = (-1 * arg.args[0]) ** arg.args[1]
+                            else:
+                                if _coeff_isneg(arg):
+                                    arg = -1 * arg
+
                         self._sympy_const *= arg
 
             # evaluate constant by creating a lamdified function
             if self._sympy_const != 1:
+                # make sure constant isn't imaginary
+                if any([arg == I for arg in self._sympy_const.args]):
+                    self._sympy_const = self._sympy_const.replace(I, 1)
+
                 constf = lambdify(
                     [symbols(name) for name in sympy_const_unit_values.keys()],
                     self._sympy_const,
@@ -747,58 +795,70 @@ class EquationBase:
 
             # get variable names
             self._var_names = self._gather_var_argnames(self.sympy.rhs)
-
-            for arg in self.sympy.rhs.args:
-                if not arg.is_constant():
-                    if isinstance(arg, Symbol):
-                        name = arg.name
-                    elif isinstance(arg, (Pow, Add)):
-                        name = self._gather_var_argnames(arg)
-                        if len(name) > 1:
-                            raise ValueError("Currently we cannot deal with Pow or Add terms containing multiple variables")
-                        elif len(name) == 1:
-                            name = name[0]
-                        else:
-                            name = str(arg.base)
-                    else:
-                        raise TypeError("")
-
-                    if name not in CONSTANTS:
-                        self._sympy_var *= arg
-
-                        # store each part
-                        self._sympy_var_parts[name] = arg
-
-                        # create functions for each part of the equation
-                        self._sympy_var_lambda[name] = lambdify(
-                            [symbols(name)],
-                            arg,
-                            modules=["numpy"],
-                        )
+            self._gather_var_parts(self.sympy.rhs.args)
 
         return self._sympy_var
 
     @staticmethod
-    def _gather_var_argnames(args):
+    def _gather_var_argnames(eqn):
         """
         Find the variable names in an equation.
         """
 
-        argnames = []
-        cargs = args.args
-
-        for arg in cargs:
-            nextargs = arg.args
-            if isinstance(arg, Symbol):
-                if arg.name not in CONSTANTS:
-                    argnames.append(arg.name)
-
-            if len(nextargs) == 0:
-                continue
-            else:
-                argnames.extend(EquationBase._gather_var_argnames(arg))
+        argnames = [arg.name for arg in eqn.atoms() if isinstance(arg, Symbol)]
+        for arg in list(argnames):
+            if arg in CONSTANTS:
+                argnames.remove(arg)
 
         return argnames
+
+    def _gather_var_parts(self, args):
+        """
+        Recursively get all the separate parts of the equation
+        """
+
+        for arg in args:
+            if not arg.is_constant():
+                if isinstance(arg, Symbol):
+                    name = arg.name
+                elif isinstance(arg, (Abs, Add, Pow)):
+                    name = self._gather_var_argnames(arg)
+                    if len(name) > 1:
+                        # recursively gather parts
+                        if isinstance(arg, Abs):
+                            abseqn = expand_power_base(arg.args[0], force=True).args
+                        else:
+                            abseqn = expand_power_base(arg, force=True).args
+
+                        self._gather_var_parts(abseqn)
+                        continue
+                    elif len(name) == 1:
+                        name = name[0]
+                    else:
+                        name = str(arg.base)
+                else:
+                    raise TypeError("Value must be a Symbol, Pow, Add or Abs")
+
+                if name not in CONSTANTS:
+                    # set variables to abs if required
+                    if (
+                        ALLOWED_VARIABLES[name]["sign"] is None
+                        and ALLOWED_VARIABLES[self.variable]["sign"] == ">= 0"
+                    ):
+                        if isinstance(arg, Pow):
+                            arg = Abs(arg.args[0]) ** arg.args[1]
+                        else:
+                            arg = Abs(arg)
+
+                    self._sympy_var *= arg
+
+                    # store each part
+                    self._sympy_var_parts[name] = arg
+
+                    # create functions for each part of the equation
+                    self._sympy_var_lambda[name] = lambdify(
+                        [symbols(name)], arg, modules=["numpy"]
+                    )
 
     @property
     def var_names(self):
@@ -841,10 +901,10 @@ class EquationBase:
         parts = []
 
         for arg in eqn.args:
-            if isinstance(arg, Mul):
-                parts.extend(EquationBase.generate_parts(arg))
+            if isinstance(arg, (Abs, Mul)):
+                parts.extend(EquationBase.generate_parts(arg, pow=pow))
             elif isinstance(arg, Pow):
-                if isinstance(arg.base, Pow):
+                if isinstance(arg.base, (Abs, Mul, Pow)):
                     exp = pow * arg.exp
                     parts.extend(EquationBase.generate_parts(arg.base, pow=exp))
                 else:
@@ -856,10 +916,158 @@ class EquationBase:
                     break
                 else:
                     parts.append((arg.name, str(pow)))
-            elif str(arg) != "1" and str(arg) != "-1":
+            elif str(arg) != "1":
                 parts.append((str(arg), "1"))
 
         return parts
+
+    @staticmethod
+    def _frequency_converter(starteqn, end):
+        """
+        Given an equation, and a required parameter, step through a set of
+        frequency conversions until the equation is parameterised with the
+        required variables.
+
+        Parameters
+        ----------
+        starteqn: EquationBase
+            The original equation
+        end: str
+            The variable name for the parameter that you want to equation to
+            contain after the conversions are performed.
+
+        Returns
+        -------
+        neweqn: EquationBase
+            A new :class:`~cweqgen.equations.EquationBase` equation using the
+            requested variable to parameterise it.
+        """
+
+        # the conversion for frequency equations to loop through
+        chain = [
+            ("rotationperiod", equations("rotationperiod_to_angularrotationfrequency")),
+            (
+                "angularrotationfrequency",
+                equations("angularrotationfrequency_to_angulargwfrequency"),
+            ),
+            ("angulargwfrequency", equations("angulargwfrequency_to_gwfrequency")),
+            ("gwfrequency", equations("gwfrequency_to_rotationfrequency")),
+            ("rotationfrequency", equations("rotationfrequency_to_period")),
+        ]
+
+        # find the index of the end point
+        endidx = ([link[0] for link in chain]).index(end)
+
+        neweqn = None
+        # find the starting conversion equation
+        for i in range(len(chain)):
+            if chain[i][0] in starteqn.var_names:
+                break
+
+        while True:
+            # loop over conversions until finished
+            if neweqn is None:
+                neweqn = starteqn.substitute(chain[i][1])
+            else:
+                neweqn = neweqn.substitute(chain[i][1])
+
+            i = (i + 1) % len(chain)
+            if i == endidx:
+                break
+
+        # the conversion for frequency derivative equations to loop through
+        chaindot = [
+            (
+                "rotationperiod",
+                "rotationpdot",
+                [equations("rotationpdot_to_angularrotationfdot"), chain[0][1]],
+            ),
+            (
+                "angularrotationfrequency",
+                "angularrotationfdot",
+                [equations("angularrotationfdot_to_angulargwfdot"), chain[1][1]],
+            ),
+            (
+                "angulargwfrequency",
+                "angulargwfdot",
+                [equations("angulargwfdot_to_gwfdot"), chain[2][1]],
+            ),
+            (
+                "gwfrequency",
+                "gwfdot",
+                [equations("gwfdot_to_rotationfdot"), chain[3][1]],
+            ),
+            (
+                "rotationfrequency",
+                "rotationfdot",
+                [equations("rotationfdot_to_period"), chain[4][1]],
+            ),
+        ]
+
+        # find the index of the end point
+        endidxdot = ([link[0] for link in chaindot]).index(end)
+
+        # find the starting conversion equation
+        for i in range(len(chaindot)):
+            if chaindot[i][1] in starteqn.var_names:
+                break
+
+        while True:
+            # loop over conversions until finished
+            for eqn in chaindot[i][2]:
+                if neweqn is None and eqn.variable in starteqn.var_names:
+                    neweqn = starteqn.substitute(eqn)
+                elif eqn.variable in neweqn.var_names:
+                    neweqn = neweqn.substitute(eqn)
+
+            i = (i + 1) % len(chaindot)
+            if i == endidxdot:
+                break
+
+        return neweqn
+
+    def to(self, newvariable):
+        """
+        Return a new version of the equation in terms of a new variable.
+        Currently this is designed to convert between frequency-like and
+        frequency first derivative parameters (it does not do higher frequency
+        derivatives), e.g., converting an equation from using frequency and
+        frequency derivative, to one using period and period derivative.
+
+        Parameters
+        ----------
+        newvariable: str
+            The new parameterisation of the equation. This can be one of:
+            "rotationfrequency", "rotationperiod", "gwfrequency",
+            "angularrotationfrequency", or "angulargwfrequency" (or any of the
+            allowed aliases for these in
+            :obj:`~cwinpy.definition.ALLOWED_VARIABLES`). If the equation
+            contains equivalents of the variable and/or their first frequency
+            derivative then both will be converted.
+
+        Returns
+        -------
+        neweqn: EquationBase
+            The equation in the new parameterisation.
+        """
+
+        # find the variable name
+        for var in ALLOWED_VARIABLES:
+            if newvariable in ALLOWED_VARIABLES[var]["aliases"]:
+                break
+        else:
+            raise ValueError(f"{newvariable} is not a recognised variable name.")
+
+        if var not in [
+            "rotationfrequency",
+            "rotationperiod",
+            "gwfrequency",
+            "angularrotationfrequency",
+            "angulargwfrequency",
+        ]:
+            raise ValueError(f"No conversion is currently available for {var}")
+
+        return self._frequency_converter(self, var)
 
 
 class EquationLaTeXString:
@@ -908,18 +1116,9 @@ class EquationLaTeXToImage:
         self.fig, self.ax = plt.subplots(1)
 
         try:
-            t = self.ax.text(
-                0.05,
-                0.5,
-                self.text,
-                usetex=True,
-            )
+            t = self.ax.text(0.05, 0.5, self.text, usetex=True)
         except RuntimeError:
-            t = self.ax.text(
-                0.0,
-                0.5,
-                self.text,
-            )
+            t = self.ax.text(0.0, 0.5, self.text)
         self.ax.axis("off")
 
         # crop figure to tight around the text
