@@ -742,17 +742,17 @@ class EquationBase:
                                 if _coeff_isneg(arg.args[0]):
                                     arg = (-1 * arg.args[0]) ** arg.args[1]
                             else:
-                                if is_coeff_isneg(arg):
+                                if _coeff_isneg(arg):
                                     arg = -1 * arg
 
                         self._sympy_const *= arg
 
-            # make sure constant isn't imaginary
-            if any([arg.is_complex for arg in self._sympy_const.args]):
-                self._sympy_const.replace(I, 1)
-
             # evaluate constant by creating a lamdified function
             if self._sympy_const != 1:
+                # make sure constant isn't imaginary
+                if any([arg == I for arg in self._sympy_const.args]):
+                    self._sympy_const = self._sympy_const.replace(I, 1)
+
                 constf = lambdify(
                     [symbols(name) for name in sympy_const_unit_values.keys()],
                     self._sympy_const,
@@ -902,9 +902,6 @@ class EquationBase:
 
         for arg in eqn.args:
             if isinstance(arg, (Abs, Mul)):
-                # if Abs value contains multiple symbols remove the Abs for simplicity
-                if isinstance(arg, Abs) and len(arg.atoms()) > 1:
-                    arg = arg.replace(Abs, Id)
                 parts.extend(EquationBase.generate_parts(arg, pow=pow))
             elif isinstance(arg, Pow):
                 if isinstance(arg.base, (Abs, Mul, Pow)):
