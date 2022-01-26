@@ -30,6 +30,7 @@ from sympy import (
     symbols,
     sympify,
 )
+from sympy.core.function import _coeff_isneg
 
 from .definitions import ALLOWED_VARIABLES, EQN_DEFINITIONS, SUPPLEMENTAL_EQUATIONS
 
@@ -734,26 +735,21 @@ class EquationBase:
 
                     if name in CONSTANTS:
                         sympy_const_unit_values[name] = CONSTANTS[name]
-                        
+
                         if ALLOWED_VARIABLES[self.variable]["sign"] == ">= 0":
                             # make sure values are positive
                             if isinstance(arg, Pow):
-                                if str(arg.args[0])[0] == "-":
+                                if _coeff_isneg(arg.args[0]):
                                     arg = (-1 * arg.args[0]) ** arg.args[1]
                             else:
-                                if str(arg)[0] == "-":
+                                if is_coeff_isneg(arg):
                                     arg = -1 * arg
 
                         self._sympy_const *= arg
 
             # make sure constant isn't imaginary
-            copyconst = 1
-            if self._sympy_const != 1:
-                for arg in self._sympy_const.args:
-                    if arg != I:
-                        copyconst *= arg
-                if copyconst != 1:
-                    self._sympy_const = copyconst
+            if any([arg.is_complex for arg in self._sympy_const.args]):
+                self._sympy_const.replace(I, 1)
 
             # evaluate constant by creating a lamdified function
             if self._sympy_const != 1:
@@ -845,12 +841,15 @@ class EquationBase:
 
                 if name not in CONSTANTS:
                     # set variables to abs if required
-                    if ALLOWED_VARIABLES[name]["sign"] is None and ALLOWED_VARIABLES[self.variable]["sign"] == ">= 0":
+                    if (
+                        ALLOWED_VARIABLES[name]["sign"] is None
+                        and ALLOWED_VARIABLES[self.variable]["sign"] == ">= 0"
+                    ):
                         if isinstance(arg, Pow):
                             arg = Abs(arg.args[0]) ** arg.args[1]
                         else:
                             arg = Abs(arg)
-                    
+
                     self._sympy_var *= arg
 
                     # store each part
