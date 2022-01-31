@@ -15,11 +15,20 @@ Installation
 Installation from PyPI
 ^^^^^^^^^^^^^^^^^^^^^^
 
-cweqgen is available on PyPI and can be installed using:
+cweqgen is available on `PyPI <https://pypi.org/project/cweqgen/>`_ and can be installed using:
 
 .. code-block:: console
 
    $ pip install cweqgen
+
+Installation from conda
+^^^^^^^^^^^^^^^^^^^^^^^
+
+cweqgen can be install in a `conda <https://docs.conda.io/en/latest/>`_ environment using:
+
+.. code-block:: console
+
+   $ conda install -c conda-forge cweqgen
 
 Installation from source
 ^^^^^^^^^^^^^^^^^^^^^^^^
