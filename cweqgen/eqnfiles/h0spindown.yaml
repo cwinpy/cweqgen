@@ -1,0 +1,56 @@
+description: Gravitational-wave amplitude spin-down limit
+variable: h0
+latex_string: r"h_0^{\rm sd}"
+default_fiducial_values:
+  momentofinertia: 1e38 * Unit("kg m^2")
+  rotationfrequency: 100 * Unit("Hz")
+  rotationfdot: -1e-11 * Unit("Hz / s")
+  distance: 1 * Unit("kpc")
+chain: [
+  "ellipticityspindown",
+  "substitute h0",
+]
+alternative_variables: [
+  "gwfrequency",
+  "rotationperiod",
+  "gwfdot",
+  "rotationpdot",
+]
+converters:
+  rotationfrequency: convert_to_rotation_frequency
+  rotationfdot: convert_to_rotation_fdot
+reference:
+  short: Aasi, A., et al. 2014, ApJ, 785, 119
+  adsurl: https://ui.adsabs.harvard.edu/abs/2014ApJ...785..119A/abstract
+  eqno: "5"
+  bibtex: |
+    @ARTICLE{2014ApJ...785..119A,
+           author = {{Aasi}, J. and others},
+            title = "{Gravitational Waves from Known Pulsars: Results from the Initial Detector Era}",
+          journal = {\\apj},
+         keywords = {gravitational waves, pulsars: general, Astrophysics - High Energy Astrophysical Phenomena, General Relativity and Quantum Cosmology},
+             year = 2014,
+            month = apr,
+           volume = {785},
+           number = {2},
+              eid = {119},
+            pages = {119},
+              doi = {10.1088/0004-637X/785/2/119},
+    archivePrefix = {arXiv},
+           eprint = {1309.4027},
+     primaryClass = {astro-ph.HE},
+           adsurl = {https://ui.adsabs.harvard.edu/abs/2014ApJ...785..119A},
+          adsnote = {Provided by the SAO/NASA Astrophysics Data System}
+    }
+docstring: |
+  Generate the equation for the spin-down limit on the gravitational wave
+  amplitude for a signal emitted from the l=m=2 mass quadrupole mode.
+
+  For the optional input keyword parameters below a range of aliases, as given in
+  :obj:`~cweqgen.definitions.ALLOWED_VARIABLES`, can be used instead.
+
+  :param str equation: "{name}"
+  :keyword float or ~astropy.units.quantity.Quantity momentofinertia: The principal moment of inertia with which the calculate the GW amplitude. If given as a float units of kg m^2 are assumed. The default value is :math:`{momentofinertia}`.
+  :keyword float or ~astropy.units.quantity.Quantity rotationfrequency: The rotation frequency of the source. If given as a float units of Hz are assumed. The default value is :math:`{rotationfrequency}`. If the rotational period or gravitational wave frequency are given instead then they will be converted into rotational frequency (for GW frequency it is assumed that this is twice the rotational frequency).
+  :keyword float or ~astropy.units.quantity.Quantity distance: The distance to the source. If given as a float units of kpc are assumed. The default value is :math:`{distance}`.
+  :keyword float or ~astropy.units.quantity.Quantity rotationfdot: The first rotational frequency derivative (i.e. the spin-down). If given as a float units of Hz/s are assumed. The default value is :math:`{rotationfdot}`. If the rotational period derivative or gravitational wave frequency derivative is given instead then they will be converted into rotational frequency derivative.
