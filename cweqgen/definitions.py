@@ -228,7 +228,6 @@ class EqDict(dict):
         try:
             self[key]["default_fiducial_values"] = {}
             for k, v in subdict["default_fiducial_values"].items():
-                print(v)
                 # use eval so that astropy units are evaluated
                 try:
                     self[key]["default_fiducial_values"][k] = eval(v)
