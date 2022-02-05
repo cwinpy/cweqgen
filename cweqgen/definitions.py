@@ -1,4 +1,9 @@
+from pathlib import Path
+import pkg_resources
+import yaml
+
 import astropy.units as u
+from astropy.units import Unit
 from astropy.units.quantity import Quantity
 from numpy import pi
 
@@ -184,8 +189,26 @@ class EqDict(dict):
     Dictionary class to hold equation definitions.
     """
 
+    def __init__(self):
+        """
+        Full dictionary with equations from eqnfiles directory
+        """
+
+        # get all YAML equation files
+        for eqfile in Path(pkg_resources.resource_filename("cweqgen", "eqnfiles")).glob("*.yaml"):
+            # read in information
+            with open(eqfile, "r") as fp:
+                eqdata = yaml.safe_load(fp.read())
+
+            # use file name as the equation key
+            key = eqfile.name.strip(eqfile.suffix)
+
+            self[key] = eqdata
+
     def __setitem__(self, key, subdict):
         super(EqDict, self).__setitem__(key, {})
+
+        print(key)
 
         try:
             self[key]["description"] = subdict["description"]
@@ -203,12 +226,23 @@ class EqDict(dict):
             raise KeyError("Equation dictionary must contain a 'latex_string'")
 
         try:
-            self[key]["default_fiducial_values"] = subdict["default_fiducial_values"]
+            self[key]["default_fiducial_values"] = {}
+            for k, v in subdict["default_fiducial_values"].items():
+                print(v)
+                # use eval so that astropy units are evaluated
+                try:
+                    self[key]["default_fiducial_values"][k] = eval(v)
+                except (SyntaxError, TypeError, ValueError):
+                    self[key]["default_fiducial_values"][k] = v
         except KeyError:
             raise KeyError("Equation dictionary must contain 'default_fiducial_values'")
 
         try:
-            self[key]["parts"] = subdict["parts"]
+            if isinstance(subdict["parts"], dict):
+                # convert dictionary into list of tuples
+                self[key]["parts"] = [(k, v) for k, v in subdict["parts"].items()]
+            else:
+                self[key]["parts"] = subdict["parts"]
         except KeyError:
             try:
                 self[key]["chain"] = subdict["chain"]
@@ -217,6 +251,12 @@ class EqDict(dict):
 
         self[key]["alternative_variables"] = subdict.get("alternative_variables", [])
         self[key]["converters"] = subdict.get("converters", {})
+
+        # convert convertor functions from strings if required
+        if len(self[key]["converters"]) > 0:
+            for k in self[key]["converters"]:
+                if not callable(self[key]["converters"][k]):
+                    self[key]["converters"][k] = eval(self[key]["converters"][k])
 
         if "reference" in subdict:
             self[key]["reference"] = subdict.get("reference")
@@ -254,68 +294,7 @@ class EqDict(dict):
 #: equation definitions
 EQN_DEFINITIONS = EqDict()
 
-EQN_DEFINITIONS["h0"] = {
-    "description": "Gravitational wave amplitude",
-    "variable": "h0",
-    "latex_string": "h_0",
-    "default_fiducial_values": {
-        "ellipticity": 1e-6,
-        "momentofinertia": 1e38 * u.Unit("kg m^2"),
-        "rotationfrequency": 100 * u.Hz,
-        "distance": 1 * u.kpc,
-    },
-    "parts": [
-        ("16", "1"),
-        ("pi", "2"),
-        ("G", "1"),
-        ("c", "-4"),
-        ("ellipticity", "1"),
-        ("momentofinertia", "1"),
-        ("rotationfrequency", "2"),
-        ("distance", "-1"),
-    ],
-    "alternative_variables": ["gwfrequency", "rotationperiod"],
-    "converters": {
-        "rotationfrequency": convert_to_rotation_frequency,
-    },
-    "reference": {
-        "short": "Jaranowski, P., Krolak, A., & Schutz, B. F. 1998, PhRvD, 58, 063001",
-        "adsurl": "https://ui.adsabs.harvard.edu/abs/1998PhRvD..58f3001J/abstract",
-        "eqno": "23",
-        "bibtex": r"""\
-@ARTICLE{1998PhRvD..58f3001J,
-       author = {{Jaranowski}, Piotr and {Kr{\'o}lak}, Andrzej and {Schutz}, Bernard F.},
-        title = "{Data analysis of gravitational-wave signals from spinning neutron stars: The signal and its detection}",
-      journal = {\prd},
-     keywords = {95.55.Ym, 04.80.Nn, 95.75.Pq, 97.60.Gb, Gravitational radiation detectors, mass spectrometers, and other instrumentation and techniques, Gravitational wave detectors and experiments, Mathematical procedures and computer techniques, Pulsars, General Relativity and Quantum Cosmology},
-         year = 1998,
-        month = sep,
-       volume = {58},
-       number = {6},
-          eid = {063001},
-        pages = {063001},
-          doi = {10.1103/PhysRevD.58.063001},
-archivePrefix = {arXiv},
-       eprint = {gr-qc/9804014},
- primaryClass = {gr-qc},
-       adsurl = {https://ui.adsabs.harvard.edu/abs/1998PhRvD..58f3001J},
-      adsnote = {Provided by the SAO/NASA Astrophysics Data System}
-}""",
-    },
-    "docstring": """
-Generate the gravitational-wave amplitude for a signal emitted from the l=m=2
-mass quadrupole mode.
 
-For the optional input keyword parameters below a range of aliases, as given in
-:obj:`~cweqgen.definitions.ALLOWED_VARIABLES`, can be used instead.
-
-:param str equation: "{name}"
-:keyword float or ~astropy.units.quantity.Quantity ellipticity: The ellipticity of the source with which the calculate the GW amplitude. The default value is :math:`{ellipticity}`.
-:keyword float or ~astropy.units.quantity.Quantity momentofinertia: The principal moment of inertia with which the calculate the GW amplitude. If given as a float units of kg m^2 are assumed. The default value is :math:`{momentofinertia}`.
-:keyword float or ~astropy.units.quantity.Quantity rotationfrequency: The rotation frequency of the source. If given as a float units of Hz are assumed. The default value is :math:`{rotationfrequency}`. If the rotational period or gravitational wave frequency are given instead then they will be converted into rotational frequency (for GW frequency it is assumed that this is twice the rotational frequency).
-:keyword float or ~astropy.units.quantity.Quantity distance: The distance to the source. If given as a float units of kpc are assumed. The default value is :math:`{distance}`.
-""",
-}
 
 EQN_DEFINITIONS["spindownluminosity"] = {
     "description": "The spin-down luminosity of a pulsar",
