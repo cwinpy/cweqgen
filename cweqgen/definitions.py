@@ -302,62 +302,6 @@ class EqDict(dict):
 EQN_DEFINITIONS = EqDict()
 
 
-EQN_DEFINITIONS["gwluminosity"] = {
-    "description": "The gravitational-wave luminosity of a pulsar",
-    "variable": "luminosity",
-    "latex_string": r"L_{\rm gw}",
-    "default_fiducial_values": {
-        "momentofinertia": 1e38 * u.Unit("kg m^2"),
-        "rotationfrequency": 100 * u.Hz,
-        "ellipticity": 1e-6,
-    },
-    "parts": [
-        ("2048/5", "1"),
-        ("pi", "6"),
-        ("G", "1"),
-        ("c", "-5"),
-        ("momentofinertia", "2"),
-        ("ellipticity", "2"),
-        ("rotationfrequency", "6"),
-    ],
-    "alternative_variables": [
-        "gwfrequency",
-        "rotationperiod",
-    ],
-    "converters": {
-        "rotationfrequency": convert_to_rotation_frequency,
-    },
-    "reference": {
-        "short": "Ostriker, J. P. and Gunn, J. E., 1969, ApJ, 157, 1395",
-        "adsurl": "https://ui.adsabs.harvard.edu/abs/1969ApJ...157.1395O/abstract",
-        "eqno": "7",
-        "bibtex": r"""\
-@ARTICLE{1969ApJ...157.1395O,
-       author = {{Ostriker}, J.~P. and {Gunn}, J.~E.},
-        title = "{On the Nature of Pulsars. I. Theory}",
-      journal = {\apj},
-         year = 1969,
-        month = sep,
-       volume = {157},
-        pages = {1395},
-          doi = {10.1086/150160},
-       adsurl = {https://ui.adsabs.harvard.edu/abs/1969ApJ...157.1395O},
-      adsnote = {Provided by the SAO/NASA Astrophysics Data System}
-}""",
-    },
-    "docstring": """
-Generate the gravitational-wave luminosity of a pulsar.
-
-For the optional input keyword parameters below a range of aliases, as given in
-:obj:`~cweqgen.definitions.ALLOWED_VARIABLES`, can be used instead.
-
-:param str equation: "{name}"
-:keyword float or ~astropy.units.quantity.Quantity ellipticity: The ellipticity of the source with which the calculate the GW amplitude. The default value is :math:`{ellipticity}`.
-:keyword float or ~astropy.units.quantity.Quantity momentofinertia: The principal moment of inertia with which the calculate the GW amplitude. If given as a float units of kg m^2 are assumed. The default value is :math:`{momentofinertia}`.
-:keyword float or ~astropy.units.quantity.Quantity rotationfrequency: The rotation frequency of the source. If given as a float units of Hz are assumed. The default value is :math:`{rotationfrequency}`. If the rotational period or gravitational wave frequency are given instead then they will be converted into rotational frequency (for GW frequency it is assumed that this is twice the rotational frequency).
-""",
-}
-
 EQN_DEFINITIONS["h0spindown"] = {
     "description": "Gravitational-wave amplitude spin-down limit",
     "variable": "h0",
