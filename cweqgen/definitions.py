@@ -79,7 +79,15 @@ ALLOWED_VARIABLES = {
     "angulargwfrequency": {
         "description": "Angular gravitational-wave frequency",
         "latex_string": r"\Omega_{\rm gw}",
-        "aliases": ["angulargwfrequency", "omegagw", "omgw", "omega0gw", "om0gw", "Ωgw", "Ω0gw"],
+        "aliases": [
+            "angulargwfrequency",
+            "omegagw",
+            "omgw",
+            "omega0gw",
+            "om0gw",
+            "Ωgw",
+            "Ω0gw",
+        ],
         "units": "rad / s",
         "sign": ">= 0",
     },
@@ -195,7 +203,9 @@ class EqDict(dict):
         """
 
         # get all YAML equation files
-        for eqfile in Path(pkg_resources.resource_filename("cweqgen", "eqnfiles")).glob("*.yaml"):
+        for eqfile in Path(pkg_resources.resource_filename("cweqgen", "eqnfiles")).glob(
+            "*.yaml"
+        ):
             # read in information
             with open(eqfile, "r") as fp:
                 eqdata = yaml.safe_load(fp.read())
@@ -292,7 +302,6 @@ class EqDict(dict):
 
 #: equation definitions
 EQN_DEFINITIONS = EqDict()
-
 
 
 EQN_DEFINITIONS["spindownluminosity"] = {
