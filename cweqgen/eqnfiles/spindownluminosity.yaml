@@ -1,0 +1,44 @@
+description: The spin-down luminosity of a pulsar
+variable: luminosity
+latex_string: r"L_{\rm sd}"
+default_fiducial_values:
+  momentofinertia: 1e38 * Unit("kg m^2")
+  rotationfrequency: 100 * Unit("Hz")
+  rotationfdot: -1e-11 * Unit("Hz / s")
+parts:
+  "4": "1"
+  "pi": "2"
+  "momentofinertia": "1"
+  "rotationfrequency": "1"
+  "rotationfdot": "1"
+alternative_variables: [
+  "gwfrequency",
+  "rotationperiod",
+  "gwfdot",
+  "rotationpdot",
+]
+converters:
+  rotationfrequency: convert_to_rotation_frequency
+  rotationfdot: convert_to_rotation_fdot
+reference:
+  short: Condon, J. J. and Ransom, S. M., 2016, Essential Radio Astronomy
+  adsurl: https://ui.adsabs.harvard.edu/abs/2016era..book.....C/abstract
+  eqno: "6.35"
+  bibtex: |
+    @BOOK{2016era..book.....C,
+           author = {{Condon}, James J. and {Ransom}, Scott M.},
+            title = "{Essential Radio Astronomy}",
+             year = 2016,
+           adsurl = {https://ui.adsabs.harvard.edu/abs/2016era..book.....C},
+          adsnote = {Provided by the SAO/NASA Astrophysics Data System}
+    }
+docstring: |
+  Generate the spin-down luminosity of a pulsar.
+
+  For the optional input keyword parameters below a range of aliases, as given in
+  :obj:`~cweqgen.definitions.ALLOWED_VARIABLES`, can be used instead.
+
+  :param str equation: "{name}"
+  :keyword float or ~astropy.units.quantity.Quantity momentofinertia: The principal moment of inertia with which the calculate the GW amplitude. If given as a float units of kg m^2 are assumed. The default value is :math:`{momentofinertia}`.
+  :keyword float or ~astropy.units.quantity.Quantity rotationfrequency: The rotation frequency of the source. If given as a float units of Hz are assumed. The default value is :math:`{rotationfrequency}`. If the rotational period or gravitational wave frequency are given instead then they will be converted into rotational frequency (for GW frequency it is assumed that this is twice the rotational frequency).
+  :keyword float or ~astropy.units.quantity.Quantity rotationfdot: The first rotational frequency derivative (i.e. the spin-down). If given as a float units of Hz/s are assumed. The default value is :math:`{rotationfdot}`. If the rotational period derivative or gravitational wave frequency derivative is given instead then they will be converted into rotational frequency derivative.
