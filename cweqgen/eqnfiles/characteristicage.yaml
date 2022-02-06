@@ -1,29 +1,22 @@
-description: The spin-down luminosity of a pulsar
-variable: luminosity
-latex_string: "L_{\\rm sd}"
+description: The characteristic age of a pulsar
+variable: characteristicage
+latex_string: "\\tau"
 default_fiducial_values:
-  momentofinertia: 1e38 * Unit("kg m^2")
-  rotationfrequency: 100 * Unit("Hz")
-  rotationfdot: -1e-11 * Unit("Hz / s")
+  brakingindex: 3
+  rotationperiod: 0.01 * Unit("s")
+  rotationpdot: 1e-15 * Unit("s / s")
 parts:
-  "4": "1"
-  "pi": "2"
-  "momentofinertia": "1"
-  "rotationfrequency": "1"
-  "rotationfdot": "1"
-alternative_variables: [
-  "gwfrequency",
-  "rotationperiod",
-  "gwfdot",
-  "rotationpdot",
-]
+  "rotationperiod": "1"
+  "rotationpdot": "-1"
+  "brakingindex - 1": "-1"
+alternative_variables: ["gwfrequency", "rotationfrequency", "rotationfdot"]
 converters:
-  rotationfrequency: convert_to_rotation_frequency
-  rotationfdot: convert_to_rotation_fdot
+  rotationperiod: convert_to_rotation_period
+  rotationpdot: convert_to_rotation_pdot
 reference:
   short: Condon, J. J. and Ransom, S. M., 2016, Essential Radio Astronomy
   adsurl: https://ui.adsabs.harvard.edu/abs/2016era..book.....C/abstract
-  eqno: "6.35"
+  eqno: "6.31"
   bibtex: |
     @BOOK{2016era..book.....C,
            author = {{Condon}, James J. and {Ransom}, Scott M.},

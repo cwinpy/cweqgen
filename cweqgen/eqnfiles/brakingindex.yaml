@@ -1,16 +1,14 @@
-description: The spin-down luminosity of a pulsar
-variable: luminosity
-latex_string: "L_{\\rm sd}"
+description: The braking index of a pulsar
+variable: brakingindex
+latex_string: n
 default_fiducial_values:
-  momentofinertia: 1e38 * Unit("kg m^2")
-  rotationfrequency: 100 * Unit("Hz")
+  rotationfrequency: 50 * Unit("Hz")
+  rotationfddot: 1e-23 * Unit("Hz / (s ** 2)")
   rotationfdot: -1e-11 * Unit("Hz / s")
 parts:
-  "4": "1"
-  "pi": "2"
-  "momentofinertia": "1"
   "rotationfrequency": "1"
-  "rotationfdot": "1"
+  "rotationfddot": "1"
+  "rotationfdot": "-2"
 alternative_variables: [
   "gwfrequency",
   "rotationperiod",

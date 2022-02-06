@@ -4,9 +4,11 @@ Defining equations
 
 
 The equation definition information is held in the :obj:`~cweqgen.definitions.EQN_DEFINITIONS`
-dictionary. If defining a new equation the information should be added into this dictionary. The
-dictionary keys give the equation's "name", with which it must be referred to. The values are
-dictionaries containing the following keys:
+dictionary. This is created from a set of YAML files containing the information for each individual
+equation. To define a new equation a new YAML file must be created. The file name (preceding the
+YAML extension) is used to define the equation's name with which it must be referred to.
+
+The file should contain the following information:
 
 "description (required)":
    a string giving a brief description of the equation
@@ -21,7 +23,7 @@ dictionaries containing the following keys:
    equation.
 
 "parts (required or chain)":
-   a list of 2-tuples containing the all parts of the equation (constants and variables) and their
+   pairs of values containing the all parts of the equation (constants and variables) and their
    exponents. These should both be string values. For variables the parameter names (the first
    value in the tuple) must be consistent with the names in the :obj:`~cweqgen.definitions.ALLOWED_VARIABLES`
    dictionary. Constants can be number value strings or the strings containing "G", "c" or "pi".
@@ -38,10 +40,10 @@ dictionaries containing the following keys:
    substituted.
 
 "default_fiducial_values (required)":
-   a dictionary with keys for all variable parameters in the equation. Each key
-   gives contains the default value of that variable (with appropriate
-   :class:`astropy.units.Unit`). The variable parameter names must be consistent with the names in
-   the :obj:`~cweqgen.definitions.ALLOWED_VARIABLES` dictionary and those given in **parts**.
+   pairs of keys and values all variable parameters in the equation. Each value gives the default
+   value of that variable (the :class:`astropy.units.Unit` can be set be giving a unit string wrapped
+   in the word "Unit", e.g., Unit("Hz")). The variable parameter names must be consistent with the
+   names in the :obj:`~cweqgen.definitions.ALLOWED_VARIABLES` dictionary and those given in **parts**.
 
 "alternative_variables":
    a list of variable names that can be used to derive a subset of the variables
@@ -51,10 +53,11 @@ dictionaries containing the following keys:
    :obj:`~cweqgen.definitions.ALLOWED_VARIABLES` dictionary.
 
 "converters":
-   a dictionary of conversion functions to convert the additional values into the required values.
+   a set of pairs of variable names and conversion functions to convert the additional values into
+   the required values.
 
 "reference":
-   a dictionary containing the following keys:
+   information about the a reference for the equation, containing:
 
    "short":
       a short string version of the reference
@@ -68,11 +71,10 @@ dictionaries containing the following keys:
    "bibtex":
       the NASA ADS `BibTeX <http://www.bibtex.org/>`_ entry for the paper
 
-"docstring":
-   a Sphinx-style docstring for the function, e.g., 
+An example YAML file for an equation is:
 
-   .. literalinclude:: docstringexample.txt
-
+.. literalinclude:: eqndefinitionexample.yaml
+   :language: yaml
 
 .. automodule:: cweqgen.definitions
    :members:

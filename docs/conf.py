@@ -21,7 +21,7 @@ import sys
 import cweqgen
 from cweqgen.sphinx import (
     generate_equations_doc,
-    generate_docstringexample_doc,
+    generate_yamlexample_doc,
 )
 
 sys.path.insert(0, os.path.abspath("../cweqgen/"))
@@ -223,4 +223,4 @@ from sphinx.util import inspect
 inspect.object_description = object_description
 
 generate_equations_doc("equations.rst")
-generate_docstringexample_doc("docstringexample.txt")
+generate_yamlexample_doc("eqndefinitionexample.yaml")

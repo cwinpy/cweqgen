@@ -7,8 +7,6 @@ from astropy.units import Unit
 from astropy.units.quantity import Quantity
 from numpy import pi
 
-from .converters import *
-
 
 #: allowed variables for equations
 ALLOWED_VARIABLES = {
@@ -245,11 +243,7 @@ class EqDict(dict):
             raise KeyError("Equation dictionary must contain 'default_fiducial_values'")
 
         try:
-            if isinstance(subdict["parts"], dict):
-                # convert dictionary into list of tuples
-                self[key]["parts"] = [(k, v) for k, v in subdict["parts"].items()]
-            else:
-                self[key]["parts"] = subdict["parts"]
+            self[key]["parts"] = subdict["parts"]
         except KeyError:
             try:
                 self[key]["chain"] = subdict["chain"]
@@ -258,12 +252,6 @@ class EqDict(dict):
 
         self[key]["alternative_variables"] = subdict.get("alternative_variables", [])
         self[key]["converters"] = subdict.get("converters", {})
-
-        # convert convertor functions from strings if required
-        if len(self[key]["converters"]) > 0:
-            for k in self[key]["converters"]:
-                if not callable(self[key]["converters"][k]):
-                    self[key]["converters"][k] = eval(self[key]["converters"][k])
 
         if "reference" in subdict:
             self[key]["reference"] = subdict.get("reference")
@@ -300,165 +288,6 @@ class EqDict(dict):
 
 #: equation definitions
 EQN_DEFINITIONS = EqDict()
-
-
-EQN_DEFINITIONS["ellipticityspindown"] = {
-    "description": "Spin-down limit for neutron star ellipticity",
-    "variable": "ellipticity",
-    "latex_string": r"\varepsilon^{\rm sd}",
-    "default_fiducial_values": {
-        "momentofinertia": 1e38 * u.Unit("kg m^2"),
-        "rotationfrequency": 100 * u.Hz,
-        "rotationfdot": -1e-11 * u.Hz / u.s,
-    },
-    "chain": [
-        "gwluminosity",
-        "equals spindownluminosity",
-        "rearrange ellipticity",
-    ],
-    "alternative_variables": [
-        "gwfrequency",
-        "rotationperiod",
-        "gwfdot",
-        "rotationpdot",
-    ],
-    "converters": {
-        "rotationfrequency": convert_to_rotation_frequency,
-        "rotationfdot": convert_to_rotation_fdot,
-    },
-    "reference": {
-        "short": "Abbott, B. P., et al. 2019, ApJ, 879, 10",
-        "adsurl": "https://ui.adsabs.harvard.edu/abs/2019ApJ...879...10A/abstract",
-        "eqno": "A9",
-        "bibtex": r"""\
-@ARTICLE{2019ApJ...879...10A,
-       author = {{Aasi}, J. and others},
-        title = "{Searches for Gravitational Waves from Known Pulsars at Two Harmonics in 2015-2017 LIGO Data}",
-      journal = {\apj},
-     keywords = {gravitational waves, pulsars: general, stars: neutron, Astrophysics - High Energy Astrophysical Phenomena, General Relativity and Quantum Cosmology},
-         year = 2019,
-        month = jul,
-       volume = {879},
-       number = {1},
-          eid = {10},
-        pages = {10},
-          doi = {10.3847/1538-4357/ab20cb},
-archivePrefix = {arXiv},
-       eprint = {1902.08507},
- primaryClass = {astro-ph.HE},
-       adsurl = {https://ui.adsabs.harvard.edu/abs/2019ApJ...879...10A},
-      adsnote = {Provided by the SAO/NASA Astrophysics Data System}
-}""",
-    },
-    "docstring": """
-Generate the equation for the spin-down limit on the source ellipticity
-for a signal emitted from the l=m=2 mass quadrupole mode.
-
-For the optional input keyword parameters below a range of aliases, as
-given in :obj:`cweqgen.definitions.ALLOWED_VARIABLES`, can be used instead.
-
-:param str equation: "{name}"
-:keyword float or ~astropy.units.quantity.Quantity momentofinertia: The principle moment of inertia with which the calculate the spin-down limit. If given as a float units of kg m^2 are assumed. The default value is :math:`{momentofinertia}`.
-:keyword float or ~astropy.units.quantity.Quantity rotationfrequency: The rotation frequency of the source. If given as a float units of Hz are assumed. The default value is :math:`{rotationfrequency}`. If the rotational period or gravitational wave frequency are given instead then they will be converted into rotational frequency (for GW frequency it is assumed that this is twice the rotational frequency).
-:keyword float or ~astropy.units.quantity.Quantity rotationfdot: The first rotational frequency derivative (i.e. the spin-down). If given as a float units of Hz/s are assumed. The default value is :math:`{rotationfdot}`. If the rotational period derivative or gravitational wave frequency derivative is given instead then they will be converted into rotational frequency derivative.
-""",
-}
-
-EQN_DEFINITIONS["brakingindex"] = {
-    "description": "The braking index of a pulsar",
-    "variable": "brakingindex",
-    "latex_string": "n",
-    "default_fiducial_values": {
-        "rotationfrequency": 50 * u.Hz,
-        "rotationfddot": 1e-23 * u.Hz / (u.s ** 2),
-        "rotationfdot": -1e-11 * u.Hz / u.s,
-    },
-    "parts": [
-        ("rotationfrequency", "1"),
-        ("rotationfddot", "1"),
-        ("rotationfdot", "-2"),
-    ],
-    "alternative_variables": [
-        "gwfrequency",
-        "rotationperiod",
-        "gwfdot",
-        "rotationpdot",
-    ],
-    "converters": {
-        "rotationfrequency": convert_to_rotation_frequency,
-        "rotationfdot": convert_to_rotation_fdot,
-    },
-    "reference": {  # this is just an example reference for the braking index (there will be earlier references!)
-        "short": "Condon, J. J. and Ransom, S. M., 2016, Essential Radio Astronomy",
-        "adsurl": "https://ui.adsabs.harvard.edu/abs/2016era..book.....C/abstract",
-        "eqno": "6.35",
-        "bibtex": r"""\
-@BOOK{2016era..book.....C,
-       author = {{Condon}, James J. and {Ransom}, Scott M.},
-        title = "{Essential Radio Astronomy}",
-         year = 2016,
-       adsurl = {https://ui.adsabs.harvard.edu/abs/2016era..book.....C},
-      adsnote = {Provided by the SAO/NASA Astrophysics Data System}
-}""",
-    },
-    "docstring": """
-Generate the equation for the braking index of a pulsar.
-
-For the optional input keyword parameters below a range of aliases, as
-given in :obj:`cweqgen.definitions.ALLOWED_VARIABLES`, can be used instead.
-
-:param str equation: "{name}"
-:keyword float or ~astropy.units.quantity.Quantity rotationfrequency: The rotation frequency of the source. If given as a float units of Hz are assumed. The default value is :math:`{rotationfrequency}`. If the rotational period or gravitational wave frequency are given instead then they will be converted into rotational frequency (for GW frequency it is assumed that this is twice the rotational frequency).
-:keyword float or ~astropy.units.quantity.Quantity rotationfdot: The first rotational frequency derivative (i.e. the spin-down). If given as a float units of Hz/s are assumed. The default value is :math:`{rotationfdot}`. If the rotational period derivative or gravitational wave frequency derivative is given instead then they will be converted into rotational frequency derivative.
-:keyword float or ~astropy.units.quantity.Quantity rotationfddot: The second rotational frequency derivative. If given as a float units of Hz/s^2 are assumed. The default value is :math:`{rotationfddot}`.
-""",
-}
-
-EQN_DEFINITIONS["characteristicage"] = {
-    "description": "The characteristic age of a pulsar",
-    "variable": "characteristicage",
-    "latex_string": r"\tau",
-    "default_fiducial_values": {
-        "brakingindex": 3,
-        "rotationperiod": 0.01 * u.s,
-        "rotationpdot": 1e-15 * u.s / u.s,
-    },
-    "parts": [
-        ("rotationperiod", "1"),
-        ("rotationpdot", "-1"),
-        ("brakingindex - 1", "-1"),
-    ],
-    "alternative_variables": ["gwfrequency", "rotationfrequency", "rotationfdot"],
-    "converters": {
-        "rotationperiod": convert_to_rotation_period,
-        "rotationpdot": convert_to_rotation_pdot,
-    },
-    "reference": {
-        "short": "Condon, J. J. and Ransom, S. M., 2016, Essential Radio Astronomy",
-        "adsurl": "https://ui.adsabs.harvard.edu/abs/2016era..book.....C/abstract",
-        "eqno": "6.31",
-        "bibtex": r"""\
-@BOOK{2016era..book.....C,
-       author = {{Condon}, James J. and {Ransom}, Scott M.},
-        title = "{Essential Radio Astronomy}",
-         year = 2016,
-       adsurl = {https://ui.adsabs.harvard.edu/abs/2016era..book.....C},
-      adsnote = {Provided by the SAO/NASA Astrophysics Data System}
-}""",
-    },
-    "docstring": """
-Generate the pulsar's characteristic age.
-
-For the optional input keyword parameters below a range of aliases, as given in
-:obj:`~cweqgen.definitions.ALLOWED_VARIABLES`, can be used instead.
-
-:param str equation: "{name}"
-:keyword float or ~astropy.units.quantity.Quantity rotationperiod: The rotation period of a pulsar. If given as a float units of s are assumed. The default value is :math:`{rotationperiod}`.
-:keyword float or ~astropy.units.quantity.Quantity rotationpdot: The first derivative of the rotation period of a pulsar. If given as a float units of s/s are assumed. The default value is :math:`{rotationpdot}`.
-:keyword float or ~astropy.units.quantity.Quantity brakingindex: The braking index of the pulsar. The default value is :math:`{brakingindex}`.
-""",
-}
-
 
 SUPPLEMENTAL_EQUATIONS = EqDict()
 

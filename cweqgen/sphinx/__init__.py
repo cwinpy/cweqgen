@@ -5,5 +5,5 @@ documentation.
 
 from .utils import (
     generate_equations_doc,
-    generate_docstringexample_doc,
+    generate_yamlexample_doc,
 )

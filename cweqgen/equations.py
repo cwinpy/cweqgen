@@ -2,7 +2,6 @@ import abc
 
 from copy import deepcopy
 from fractions import Fraction
-from astropy.units.format.base import Base
 
 import numpy as np
 from numpy import pi
@@ -19,7 +18,6 @@ from sympy import (
     Eq,
     expand_power_base,
     I,
-    Id,
     lambdify,
     latex,
     Mul,
@@ -32,6 +30,7 @@ from sympy import (
 )
 from sympy.core.function import _coeff_isneg
 
+from . import converters
 from .definitions import ALLOWED_VARIABLES, EQN_DEFINITIONS, SUPPLEMENTAL_EQUATIONS
 
 #: dictionary of constants
@@ -91,8 +90,10 @@ def equations(equation, **kwargs):
 
     # generate equation
     if parts is not None:
+        if isinstance(parts, dict):
+            # convert dictionary into list of tuples
+            parts = [(k, v) for k, v in parts.items()]
         kwargs["parts"] = parts
-
     else:
         chain = eqinfo["chain"]
 
@@ -135,7 +136,25 @@ def equations(equation, **kwargs):
 
     # update the equation docstring
     try:
-        eq.__doc__ = eqinfo["docstring"]
+        # construct doctring
+        eq.__doc__ = f"""
+{eqinfo["description"]}.
+
+:param str equation: "{equation.lower()}"
+"""
+        for k, v in eqinfo["default_fiducial_values"].items():
+            eq.__doc__ += f":keyword float or ~astropy.units.quantity.Quantity {k}: {ALLOWED_VARIABLES[k]['description']}. The default value is {v}."
+            if "aliases" in ALLOWED_VARIABLES[k]:
+                eq.__doc__ += (
+                    " Alternative keyword names are: "
+                    + ", ".join(
+                        f'"**{alias}**"'
+                        for alias in ALLOWED_VARIABLES[k]["aliases"]
+                        if alias != k
+                    )
+                    + "."
+                )
+            eq.__doc__ += "\n"
     except KeyError:
         pass
 
@@ -211,7 +230,17 @@ class EquationBase:
         for key in self.converters:
             if key not in values:
                 try:
-                    values[key] = self.converters[key](**values)
+                    if callable(self.converters[key]):
+                        values[key] = self.converters[key](**values)
+                    else:
+                        if self.converters[key] in converters.__dict__:
+                            values[key] = converters.__dict__[self.converters[key]](
+                                **values
+                            )
+                        else:
+                            raise ValueError(
+                                f"Converter function {self.converters[key]} is not recognised"
+                            )
                 except ValueError:
                     pass
 
