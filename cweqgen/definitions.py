@@ -171,7 +171,7 @@ ALLOWED_VARIABLES = {
         "latex_string": r"\tau",
         "aliases": ["characteristicage", "tau", "𝜏"],
         "units": "yr",
-        "sign": ">= 0",
+        "sign": None,
     },
     "luminosity": {
         "description": "The luminosity of a source",
