@@ -1,0 +1,32 @@
+description: The braking index of a pulsar
+variable: brakingindex
+latex_string: n
+default_fiducial_values:
+  rotationfrequency: 50 * Unit("Hz")
+  rotationfddot: 1e-23 * Unit("Hz / (s ** 2)")
+  rotationfdot: -1e-11 * Unit("Hz / s")
+parts:
+  "rotationfrequency": "1"
+  "rotationfddot": "1"
+  "rotationfdot": "-2"
+alternative_variables: [
+  "gwfrequency",
+  "rotationperiod",
+  "gwfdot",
+  "rotationpdot",
+]
+converters:
+  rotationfrequency: convert_to_rotation_frequency
+  rotationfdot: convert_to_rotation_fdot
+reference:
+  short: Condon, J. J. and Ransom, S. M., 2016, Essential Radio Astronomy
+  adsurl: https://ui.adsabs.harvard.edu/abs/2016era..book.....C/abstract
+  eqno: "6.35"
+  bibtex: |
+    @BOOK{2016era..book.....C,
+           author = {{Condon}, James J. and {Ransom}, Scott M.},
+            title = "{Essential Radio Astronomy}",
+             year = 2016,
+           adsurl = {https://ui.adsabs.harvard.edu/abs/2016era..book.....C},
+          adsnote = {Provided by the SAO/NASA Astrophysics Data System}
+    }

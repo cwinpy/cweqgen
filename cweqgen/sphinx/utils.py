@@ -1,3 +1,7 @@
+import os
+import pkg_resources
+import shutil
+
 from ..equations import equations
 from ..definitions import EQN_DEFINITIONS
 
@@ -121,9 +125,9 @@ To generate the equation as calculated at particular values, the
         fp.write(doccontents + references)
 
 
-def generate_docstringexample_doc(docfile, eqn="h0"):
+def generate_yamlexample_doc(docfile, eqn="h0"):
     """
-    Helper function to output an example docstring.
+    Output an example YAML file.
 
     Parameters
     ----------
@@ -133,6 +137,5 @@ def generate_docstringexample_doc(docfile, eqn="h0"):
         The name of the equation for which the docstring is required.
     """
 
-    # write out example docstring
-    with open(docfile, "w") as fp:
-        fp.write(EQN_DEFINITIONS[eqn]["docstring"])
+    src = os.path.join(pkg_resources.resource_filename("cweqgen", "eqnfiles"), f"{eqn}.yaml")
+    shutil.copyfile(src, docfile)

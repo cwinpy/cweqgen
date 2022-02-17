@@ -1,0 +1,34 @@
+description: The spin-down luminosity of a pulsar
+variable: luminosity
+latex_string: "L_{\\rm sd}"
+default_fiducial_values:
+  momentofinertia: 1e38 * Unit("kg m^2")
+  rotationfrequency: 100 * Unit("Hz")
+  rotationfdot: -1e-11 * Unit("Hz / s")
+parts:
+  "4": "1"
+  "pi": "2"
+  "momentofinertia": "1"
+  "rotationfrequency": "1"
+  "rotationfdot": "1"
+alternative_variables: [
+  "gwfrequency",
+  "rotationperiod",
+  "gwfdot",
+  "rotationpdot",
+]
+converters:
+  rotationfrequency: convert_to_rotation_frequency
+  rotationfdot: convert_to_rotation_fdot
+reference:
+  short: Condon, J. J. and Ransom, S. M., 2016, Essential Radio Astronomy
+  adsurl: https://ui.adsabs.harvard.edu/abs/2016era..book.....C/abstract
+  eqno: "6.35"
+  bibtex: |
+    @BOOK{2016era..book.....C,
+           author = {{Condon}, James J. and {Ransom}, Scott M.},
+            title = "{Essential Radio Astronomy}",
+             year = 2016,
+           adsurl = {https://ui.adsabs.harvard.edu/abs/2016era..book.....C},
+          adsnote = {Provided by the SAO/NASA Astrophysics Data System}
+    }

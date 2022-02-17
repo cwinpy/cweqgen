@@ -1,0 +1,43 @@
+description: Gravitational wave amplitude
+variable: h0
+latex_string: h_0
+default_fiducial_values:
+  ellipticity: 1e-6
+  momentofinertia: 1e38 * Unit("kg m^2")
+  rotationfrequency: 100 * Unit("Hz")
+  distance: 1 * Unit("kpc")
+parts:
+  "16": "1"
+  "pi": "2"
+  "G": "1"
+  "c": "-4"
+  "ellipticity": "1"
+  "momentofinertia": "1"
+  "rotationfrequency": "2"
+  "distance": "-1"
+alternative_variables: ["gwfrequency", "rotationperiod"]
+converters:
+  rotationfrequency: convert_to_rotation_frequency
+reference:
+  short: Jaranowski, P., Krolak, A., & Schutz, B. F. 1998, PhRvD, 58, 063001
+  adsurl: https://ui.adsabs.harvard.edu/abs/1998PhRvD..58f3001J/abstract
+  eqno: 23
+  bibtex: |
+    @ARTICLE{1998PhRvD..58f3001J,
+           author = {{Jaranowski}, Piotr and {Kr{\\'o}lak}, Andrzej and {Schutz}, Bernard F.},
+            title = "{Data analysis of gravitational-wave signals from spinning neutron stars: The signal and its detection}",
+          journal = {\\prd},
+         keywords = {95.55.Ym, 04.80.Nn, 95.75.Pq, 97.60.Gb, Gravitational radiation detectors, mass spectrometers, and other instrumentation and techniques, Gravitational wave detectors and experiments, Mathematical procedures and computer techniques, Pulsars, General Relativity and Quantum Cosmology},
+             year = 1998,
+            month = sep,
+           volume = {58},
+           number = {6},
+              eid = {063001},
+            pages = {063001},
+              doi = {10.1103/PhysRevD.58.063001},
+    archivePrefix = {arXiv},
+           eprint = {gr-qc/9804014},
+     primaryClass = {gr-qc},
+           adsurl = {https://ui.adsabs.harvard.edu/abs/1998PhRvD..58f3001J},
+          adsnote = {Provided by the SAO/NASA Astrophysics Data System}
+    }
