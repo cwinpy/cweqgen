@@ -1,4 +1,5 @@
 import abc
+import functools
 
 from copy import deepcopy
 from fractions import Fraction
@@ -33,14 +34,52 @@ from sympy.core.function import _coeff_isneg
 from . import converters
 from .definitions import ALLOWED_VARIABLES, EQN_DEFINITIONS, SUPPLEMENTAL_EQUATIONS
 
+try:
+    from ._version import version as __version__
+except ModuleNotFoundError:
+    __version__ = ""
+
+
 #: dictionary of constants
 CONSTANTS = {"G": G, "c": c, "pi": pi}
+
+
+def function_call_signature(func):
+    """
+    Decorator function to record the call signature of a function. This is
+    based on https://www.geeksforgeeks.org/python-get-function-signature/.
+    """
+
+    # get argument variable names
+    argnames = func.__code__.co_varnames[:func.__code__.co_argcount]
+
+    # get called function name
+    fname = func.__name__
+
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        # generate string with function call signature
+        funccall = fname + "("
+        for item in zip(argnames, args[:len(argnames)]):
+            funccall += f"{item[0]}="
+            funccall += f'"{item[1]}"' if isinstance(item[1], str) else f"{item[1]}"
+            funccall += ", "
+        funccall += f"{kwargs}" + ")"
+
+        # pass signature to function (which should capture it in some way)
+        kwargs["function_call"] = funccall
+        res = func(*args, **kwargs)
+        kwargs.pop("function_call")
+        return res
+
+    return wrapper
 
 
 def constfunc(name):
     return CONSTANTS[name]
 
 
+@function_call_signature
 def equations(equation, **kwargs):
     """
     This function generates a :class:`~cweqgen.equations.EquationBase` class
@@ -207,6 +246,9 @@ class EquationBase:
 
         # BibTeX for reference (from ADS)
         self.reference_bibtex = kwargs.pop("reference_bibtex", None)
+
+        # get function call for equations function
+        self.equations_call = kwargs.get("function_call", None)
 
         # make sure Sympy version of equation is generated
         _ = self.sympy_var
@@ -428,7 +470,12 @@ class EquationBase:
         if displaytype.lower() == "matplotlib":
             return EquationLaTeXToImage(latex_equation)
         else:
-            return EquationLaTeXString(latex_equation)
+            # add LaTeX comment to string with cweqgen version and equations call
+            comment = f"equation generated with cweqgen v{__version__}"
+            if self.equations_call is not None:
+                comment += f": {self.equations_call}"
+
+            return EquationLaTeXString(latex_equation, comment=comment)
 
     @property
     def eqn(self):
@@ -543,7 +590,12 @@ class EquationBase:
         if displaytype.lower() == "matplotlib":
             return EquationLaTeXToImage("$" + latex_equation + "$")
         else:
-            return EquationLaTeXString(latex_equation)
+            # add LaTeX comment to string with cweqgen version and equations call
+            comment = f"equation generated with cweqgen {__version__}"
+            if self.equations_call is not None:
+                comment += f"\n{self.equations_call}"
+
+            return EquationLaTeXString(latex_equation, comment=comment)
 
     def evaluate(self, **kwargs):
         """
@@ -1100,7 +1152,7 @@ class EquationBase:
 
 
 class EquationLaTeXString:
-    def __init__(self, latexstring):
+    def __init__(self, latexstring, comment=None):
         """
         Class to hold a LaTeX equation string. It has a _repr_latex_ method to
         hook into the Jupyter notebook rich display system
@@ -1111,15 +1163,28 @@ class EquationLaTeXString:
         ----------
         latexstring: str
             The LaTeX string defining the equation.
+        comment: str
+            A LaTeX comment (% will be prepended to any lines)
         """
 
         self.text = str(latexstring)
+        self.comment = comment
 
     def __repr__(self):
-        return self.text
+        if self.comment is None:
+            return self.text
+        else:
+            output = "".join(f"% {line}\n" for line in self.comment.split("\n"))
+            output += self.text
+            return output
 
     def __str__(self):
-        return self.text
+        if self.comment is None:
+            return self.text
+        else:
+            output = "".join(f"% {line}\n" for line in self.comment.split("\n"))
+            output += self.text
+            return output
 
     def _repr_latex_(self):
         return "$" + self.text + "$"
