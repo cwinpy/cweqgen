@@ -60,11 +60,11 @@ def function_call_signature(func):
     def wrapper(*args, **kwargs):
         # generate string with function call signature
         funccall = fname + "("
-        for item in zip(argnames, args[:len(argnames)]):
+        for item in list(zip(argnames, args[:len(argnames)])) + list(kwargs.items()):
             funccall += f"{item[0]}="
             funccall += f'"{item[1]}"' if isinstance(item[1], str) else f"{item[1]}"
             funccall += ", "
-        funccall += f"{kwargs}" + ")"
+        funccall = funccall.strip().rstrip(",") + ")"
 
         # pass signature to function (which should capture it in some way)
         kwargs["function_call"] = funccall
@@ -473,7 +473,7 @@ class EquationBase:
             # add LaTeX comment to string with cweqgen version and equations call
             comment = f"equation generated with cweqgen v{__version__}"
             if self.equations_call is not None:
-                comment += f": {self.equations_call}"
+                comment += f":\n  {self.equations_call}"
 
             return EquationLaTeXString(latex_equation, comment=comment)
 
@@ -591,9 +591,9 @@ class EquationBase:
             return EquationLaTeXToImage("$" + latex_equation + "$")
         else:
             # add LaTeX comment to string with cweqgen version and equations call
-            comment = f"equation generated with cweqgen {__version__}"
+            comment = f"equation generated with cweqgen v{__version__}"
             if self.equations_call is not None:
-                comment += f"\n{self.equations_call}"
+                comment += f":\n  {self.equations_call}"
 
             return EquationLaTeXString(latex_equation, comment=comment)
 
