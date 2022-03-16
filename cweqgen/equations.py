@@ -417,7 +417,7 @@ class EquationBase:
         else:
             return fiducial
 
-    def equation(self, displaytype="string", **latexkwargs):
+    def equation(self, displaytype="string", nocomment=False, **latexkwargs):
         """
         Generate the LaTeX string for the equation.
 
@@ -429,6 +429,10 @@ class EquationBase:
             this will show as a formatted LaTeX equation. Alternatively, set to
             "matplotlib" to have the output returned as a Matplotlib figure
             object containing the equation.
+        nocomment: bool
+            By default the output LaTeX string will contain a comment line
+            giving the cweqgen version and call signature from the equations
+            function. To turn this off, set this argument to True.
         latexkwargs: dict
             Keyword parameters that can be passed to the
             :func:`sympy.printing.latex.latex` function. By default the
@@ -471,9 +475,11 @@ class EquationBase:
             return EquationLaTeXToImage(latex_equation)
         else:
             # add LaTeX comment to string with cweqgen version and equations call
-            comment = f"equation generated with cweqgen v{__version__}"
-            if self.equations_call is not None:
-                comment += f":\n  {self.equations_call}"
+            comment = None
+            if not nocomment:
+                comment = f"equation generated with cweqgen v{__version__}"
+                if self.equations_call is not None:
+                    comment += f":\n  {self.equations_call}"
 
             return EquationLaTeXString(latex_equation, comment=comment)
 
@@ -494,7 +500,7 @@ class EquationBase:
     def _repr_latex_(self):
         return "$" + str(self.equation()) + "$"
 
-    def fiducial_equation(self, dp=2, brackets="()", displaytype="string", **kwargs):
+    def fiducial_equation(self, dp=2, brackets="()", displaytype="string", nocomment=False, **kwargs):
         """
         Generate the LaTeX string for the equation inserting in fiducial values.
 
@@ -511,6 +517,10 @@ class EquationBase:
             this will show as a formatted LaTeX equation. Alternatively, set to
             "matplotlib" to have the output returned as a Matplotlib figure
             object containing the equation.
+        nocomment: bool
+            By default the output LaTeX string will contain a comment line
+            giving the cweqgen version and call signature from the equations
+            function. To turn this off, set this argument to True.
         """
 
         latex_equation = self.latex_name + " = "
@@ -590,10 +600,12 @@ class EquationBase:
         if displaytype.lower() == "matplotlib":
             return EquationLaTeXToImage("$" + latex_equation + "$")
         else:
-            # add LaTeX comment to string with cweqgen version and equations call
-            comment = f"equation generated with cweqgen v{__version__}"
-            if self.equations_call is not None:
-                comment += f":\n  {self.equations_call}"
+            comment = None
+            if not nocomment:
+                # add LaTeX comment to string with cweqgen version and equations call
+                comment = f"equation generated with cweqgen v{__version__}"
+                if self.equations_call is not None:
+                    comment += f":\n  {self.equations_call}"
 
             return EquationLaTeXString(latex_equation, comment=comment)
 
