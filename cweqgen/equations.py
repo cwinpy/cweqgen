@@ -1033,6 +1033,8 @@ class EquationBase:
             requested variable to parameterise it.
         """
 
+        neweqn = None
+
         # the conversion for frequency equations to loop through
         chain = [
             ("rotationperiod", equations("rotationperiod_to_angularrotationfrequency")),
@@ -1044,26 +1046,6 @@ class EquationBase:
             ("gwfrequency", equations("gwfrequency_to_rotationfrequency")),
             ("rotationfrequency", equations("rotationfrequency_to_period")),
         ]
-
-        # find the index of the end point
-        endidx = ([link[0] for link in chain]).index(end)
-
-        neweqn = None
-        # find the starting conversion equation
-        for i in range(len(chain)):
-            if chain[i][0] in starteqn.var_names:
-                break
-
-        while True:
-            # loop over conversions until finished
-            if neweqn is None:
-                neweqn = starteqn.substitute(chain[i][1])
-            else:
-                neweqn = neweqn.substitute(chain[i][1])
-
-            i = (i + 1) % len(chain)
-            if i == endidx:
-                break
 
         # the conversion for frequency derivative equations to loop through
         chaindot = [
@@ -1095,23 +1077,47 @@ class EquationBase:
         ]
 
         # find the index of the end point
-        endidxdot = ([link[0] for link in chaindot]).index(end)
+        endidx = ([link[0] for link in chain]).index(end)
 
         # find the starting conversion equation
-        for i in range(len(chaindot)):
-            if chaindot[i][1] in starteqn.var_names:
+        for i in range(len(chain)):
+            if chain[i][0] in starteqn.var_names:
                 break
 
         while True:
             # loop over conversions until finished
-            for eqn in chaindot[i][2]:
-                if neweqn is None and eqn.variable in starteqn.var_names:
-                    neweqn = starteqn.substitute(eqn)
-                elif eqn.variable in neweqn.var_names:
-                    neweqn = neweqn.substitute(eqn)
+            if neweqn is None:
+                neweqn = starteqn.substitute(chain[i][1])
+            else:
+                neweqn = neweqn.substitute(chain[i][1])
 
-            i = (i + 1) % len(chaindot)
-            if i == endidxdot:
+            #print(neweqn)
+            #print(neweqn.default_fiducial_values)
+
+            # loop to same point as frequency parameter
+            endidxdot = (i + 1) % len(chain)
+
+            # find the starting conversion equation
+            for j in range(len(chaindot)):
+                if chaindot[j][1] in starteqn.var_names:
+                    break
+
+            while True:
+                #print(chaindot[j][0])
+
+                # loop over conversions until finished
+                for eqn in chaindot[j][2]:
+                    if neweqn is None and eqn.variable in starteqn.var_names:
+                        neweqn = starteqn.substitute(eqn)
+                    elif eqn.variable in neweqn.var_names:
+                        neweqn = neweqn.substitute(eqn)
+
+                j = (j + 1) % len(chaindot)
+                if j == endidxdot:
+                    break
+                
+            i = (i + 1) % len(chain)
+            if i == endidx:
                 break
 
         return neweqn

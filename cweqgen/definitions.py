@@ -135,14 +135,14 @@ ALLOWED_VARIABLES = {
         "description": "Source rotational frequency second derivative",
         "latex_string": r"\ddot{f}_{\rm rot}",
         "aliases": ["rotationfddot", "frotddot", "f2rot", "f2spin"],
-        "units": "Hz / s / s",
+        "units": "Hz / s^2",
         "sign": None,
     },
     "gwfdot": {
         "description": "Gravitational-wave second frequency derivative",
         "latex_string": r"\dot{f}_{\rm gw}",
         "aliases": ["gwfddot", "fddotgw", "f2gw"],
-        "units": "Hz / s / s",
+        "units": "Hz / s ",
         "sign": None,
     },
     "momentofinertia": {
@@ -393,7 +393,7 @@ SUPPLEMENTAL_EQUATIONS["angularrotationfdot_to_angulargwfdot"] = {
     "variable": "angularrotationfdot",
     "latex_string": r"\dot{\Omega}_{\rm rot}",
     "default_fiducial_values": {
-        "angulargwfdot": 4 * pi * 100 * u.rad / (u.s ** 2),
+        "angulargwfdot": -4 * pi * 1e-11 * u.rad / (u.s ** 2),
     },
     "parts": [
         ("1/2", "1"),
@@ -406,7 +406,7 @@ SUPPLEMENTAL_EQUATIONS["angulargwfdot_to_gwfdot"] = {
     "variable": "angulargwfdot",
     "latex_string": r"\dot{\Omega}_{\rm gw}",
     "default_fiducial_values": {
-        "gwfdot": 2 * 100 * u.Hz / u.s,
+        "gwfdot": -2 * 1e-11 * u.Hz / u.s,
     },
     "parts": [
         ("2", "1"),
@@ -420,7 +420,7 @@ SUPPLEMENTAL_EQUATIONS["gwfdot_to_rotationfdot"] = {
     "variable": "gwfdot",
     "latex_string": r"\dot{f}_{\rm gw}",
     "default_fiducial_values": {
-        "rotationfdot": 100 * u.Hz / u.s,
+        "rotationfdot": -1e-11 * u.Hz / u.s,
     },
     "parts": [
         ("2", "1"),
