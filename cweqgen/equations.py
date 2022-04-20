@@ -719,7 +719,7 @@ class EquationBase:
 
         newfiducial = newkwargs.pop("default_fiducial_values")
         newfiducial.pop(newvar)
-        newfiducial[self.equation_name] = curval
+        newfiducial[self.variable] = curval
 
         if isinstance(equal, EquationBase):
             newfiducial.update(equal.kwargs["default_fiducial_values"])
@@ -800,9 +800,6 @@ class EquationBase:
         newkwargs["parts"] = self.generate_parts(expand_power_base(neweq, force=True))
 
         return EquationBase(**newkwargs)
-
-    def __str__(self):
-        return str(self.equation())
 
     @property
     def sympy_const(self):
