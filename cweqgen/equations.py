@@ -324,9 +324,10 @@ class EquationBase:
 
                     # check value has correct sign
                     if ALLOWED_VARIABLES[key]["sign"] is not None:
+                        varray = np.asarray(value.value)
                         strrep = (
                             "np.array("
-                            + np.array2string(np.asarray(value.value), separator=", ")
+                            + np.array2string(varray, separator=", ", threshold=len(varray))
                             + ")"
                         )
 
