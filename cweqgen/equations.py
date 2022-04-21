@@ -814,6 +814,9 @@ class EquationBase:
 
             for arg in self.sympy.rhs.args:
                 if arg.is_constant():
+                    if arg.is_negative and ALLOWED_VARIABLES[self.variable]["sign"] == ">= 0":
+                        arg *= -1  # flip sign
+
                     self._sympy_const *= arg
                 else:
                     if isinstance(arg, Symbol):
@@ -1091,9 +1094,6 @@ class EquationBase:
             else:
                 neweqn = neweqn.substitute(chain[i][1])
 
-            #print(neweqn)
-            #print(neweqn.default_fiducial_values)
-
             # loop to same point as frequency parameter
             endidxdot = (i + 1) % len(chain)
 
@@ -1103,8 +1103,6 @@ class EquationBase:
                     break
 
             while True:
-                #print(chaindot[j][0])
-
                 # loop over conversions until finished
                 for eqn in chaindot[j][2]:
                     if neweqn is None and eqn.variable in starteqn.var_names:
