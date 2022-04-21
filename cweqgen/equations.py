@@ -51,7 +51,7 @@ def function_call_signature(func):
     """
 
     # get argument variable names
-    argnames = func.__code__.co_varnames[:func.__code__.co_argcount]
+    argnames = func.__code__.co_varnames[: func.__code__.co_argcount]
 
     # get called function name
     fname = func.__name__
@@ -60,7 +60,7 @@ def function_call_signature(func):
     def wrapper(*args, **kwargs):
         # generate string with function call signature
         funccall = fname + "("
-        for item in list(zip(argnames, args[:len(argnames)])) + list(kwargs.items()):
+        for item in list(zip(argnames, args[: len(argnames)])) + list(kwargs.items()):
             funccall += f"{item[0]}="
             funccall += f'"{item[1]}"' if isinstance(item[1], str) else f"{item[1]}"
             funccall += ", "
@@ -500,7 +500,9 @@ class EquationBase:
     def _repr_latex_(self):
         return "$" + str(self.equation()) + "$"
 
-    def fiducial_equation(self, dp=2, brackets="()", displaytype="string", nocomment=False, **kwargs):
+    def fiducial_equation(
+        self, dp=2, brackets="()", displaytype="string", nocomment=False, **kwargs
+    ):
         """
         Generate the LaTeX string for the equation inserting in fiducial values.
 
@@ -814,7 +816,10 @@ class EquationBase:
 
             for arg in self.sympy.rhs.args:
                 if arg.is_constant():
-                    if arg.is_negative and ALLOWED_VARIABLES[self.variable]["sign"] == ">= 0":
+                    if (
+                        arg.is_negative
+                        and ALLOWED_VARIABLES[self.variable]["sign"] == ">= 0"
+                    ):
                         arg *= -1  # flip sign
 
                     self._sympy_const *= arg
@@ -1113,7 +1118,7 @@ class EquationBase:
                 j = (j + 1) % len(chaindot)
                 if j == endidxdot:
                     break
-                
+
             i = (i + 1) % len(chain)
             if i == endidx:
                 break
