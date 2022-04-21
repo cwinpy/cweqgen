@@ -51,7 +51,7 @@ def function_call_signature(func):
     """
 
     # get argument variable names
-    argnames = func.__code__.co_varnames[:func.__code__.co_argcount]
+    argnames = func.__code__.co_varnames[: func.__code__.co_argcount]
 
     # get called function name
     fname = func.__name__
@@ -60,7 +60,7 @@ def function_call_signature(func):
     def wrapper(*args, **kwargs):
         # generate string with function call signature
         funccall = fname + "("
-        for item in list(zip(argnames, args[:len(argnames)])) + list(kwargs.items()):
+        for item in list(zip(argnames, args[: len(argnames)])) + list(kwargs.items()):
             funccall += f"{item[0]}="
             funccall += f'"{item[1]}"' if isinstance(item[1], str) else f"{item[1]}"
             funccall += ", "
@@ -501,7 +501,9 @@ class EquationBase:
     def _repr_latex_(self):
         return "$" + str(self.equation()) + "$"
 
-    def fiducial_equation(self, dp=2, brackets="()", displaytype="string", nocomment=False, **kwargs):
+    def fiducial_equation(
+        self, dp=2, brackets="()", displaytype="string", nocomment=False, **kwargs
+    ):
         """
         Generate the LaTeX string for the equation inserting in fiducial values.
 
@@ -720,7 +722,7 @@ class EquationBase:
 
         newfiducial = newkwargs.pop("default_fiducial_values")
         newfiducial.pop(newvar)
-        newfiducial[self.equation_name] = curval
+        newfiducial[self.variable] = curval
 
         if isinstance(equal, EquationBase):
             newfiducial.update(equal.kwargs["default_fiducial_values"])
@@ -802,9 +804,6 @@ class EquationBase:
 
         return EquationBase(**newkwargs)
 
-    def __str__(self):
-        return str(self.equation())
-
     @property
     def sympy_const(self):
         """
@@ -818,6 +817,12 @@ class EquationBase:
 
             for arg in self.sympy.rhs.args:
                 if arg.is_constant():
+                    if (
+                        arg.is_negative
+                        and ALLOWED_VARIABLES[self.variable]["sign"] == ">= 0"
+                    ):
+                        arg *= -1  # flip sign
+
                     self._sympy_const *= arg
                 else:
                     if isinstance(arg, Symbol):
@@ -1037,6 +1042,8 @@ class EquationBase:
             requested variable to parameterise it.
         """
 
+        neweqn = None
+
         # the conversion for frequency equations to loop through
         chain = [
             ("rotationperiod", equations("rotationperiod_to_angularrotationfrequency")),
@@ -1048,26 +1055,6 @@ class EquationBase:
             ("gwfrequency", equations("gwfrequency_to_rotationfrequency")),
             ("rotationfrequency", equations("rotationfrequency_to_period")),
         ]
-
-        # find the index of the end point
-        endidx = ([link[0] for link in chain]).index(end)
-
-        neweqn = None
-        # find the starting conversion equation
-        for i in range(len(chain)):
-            if chain[i][0] in starteqn.var_names:
-                break
-
-        while True:
-            # loop over conversions until finished
-            if neweqn is None:
-                neweqn = starteqn.substitute(chain[i][1])
-            else:
-                neweqn = neweqn.substitute(chain[i][1])
-
-            i = (i + 1) % len(chain)
-            if i == endidx:
-                break
 
         # the conversion for frequency derivative equations to loop through
         chaindot = [
@@ -1099,23 +1086,42 @@ class EquationBase:
         ]
 
         # find the index of the end point
-        endidxdot = ([link[0] for link in chaindot]).index(end)
+        endidx = ([link[0] for link in chain]).index(end)
 
         # find the starting conversion equation
-        for i in range(len(chaindot)):
-            if chaindot[i][1] in starteqn.var_names:
+        for i in range(len(chain)):
+            if chain[i][0] in starteqn.var_names:
                 break
 
         while True:
             # loop over conversions until finished
-            for eqn in chaindot[i][2]:
-                if neweqn is None and eqn.variable in starteqn.var_names:
-                    neweqn = starteqn.substitute(eqn)
-                elif eqn.variable in neweqn.var_names:
-                    neweqn = neweqn.substitute(eqn)
+            if neweqn is None:
+                neweqn = starteqn.substitute(chain[i][1])
+            else:
+                neweqn = neweqn.substitute(chain[i][1])
 
-            i = (i + 1) % len(chaindot)
-            if i == endidxdot:
+            # loop to same point as frequency parameter
+            endidxdot = (i + 1) % len(chain)
+
+            # find the starting conversion equation
+            for j in range(len(chaindot)):
+                if chaindot[j][1] in starteqn.var_names:
+                    break
+
+            while True:
+                # loop over conversions until finished
+                for eqn in chaindot[j][2]:
+                    if neweqn is None and eqn.variable in starteqn.var_names:
+                        neweqn = starteqn.substitute(eqn)
+                    elif eqn.variable in neweqn.var_names:
+                        neweqn = neweqn.substitute(eqn)
+
+                j = (j + 1) % len(chaindot)
+                if j == endidxdot:
+                    break
+
+            i = (i + 1) % len(chain)
+            if i == endidx:
                 break
 
         return neweqn
