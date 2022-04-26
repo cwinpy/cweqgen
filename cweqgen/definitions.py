@@ -155,7 +155,7 @@ ALLOWED_VARIABLES = {
     "distance": {
         "description": "Distance to the source",
         "latex_string": "d",
-        "aliases": ["distance", "d", "r"],
+        "aliases": ["distance", "dist", "d", "r"],
         "units": "kpc",
         "sign": ">= 0",
     },
