@@ -71,7 +71,7 @@ The generated equation ({0} [{1}]_) is:
 
     {2}
 """.format(
-            eqno, refnum, eq.equation()
+            eqno, refnum, eq.equation(nocomment=True)
         )
 
         eqstr += """
@@ -81,7 +81,7 @@ The fiducial values defined for this equation are:
 
     {}
 """.format(
-            eq.fiducial_equation()
+            eq.fiducial_equation(nocomment=True)
         )
 
         eqstr += """
@@ -139,3 +139,4 @@ def generate_yamlexample_doc(docfile, eqn="h0"):
 
     src = os.path.join(pkg_resources.resource_filename("cweqgen", "eqnfiles"), f"{eqn}.yaml")
     shutil.copyfile(src, docfile)
+
