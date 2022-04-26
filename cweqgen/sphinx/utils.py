@@ -116,7 +116,7 @@ To generate the equation as calculated at particular values, the
     # add in list of references
     for i in range(len(usedreferences)):
         references += """
-.. [{0}] {1} [`ADS URL <{2}>`_]
+.. [{0}] {1} [`ADS URL <{2}>`__]
 """.format(
             (i + 1), usedreferences[i], usedrefurls[i]
         )
