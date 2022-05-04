@@ -1013,10 +1013,13 @@ class EquationBase:
                     parts.extend(EquationBase.generate_parts(arg.base, pow=exp))
                 else:
                     parts.append((str(arg.base), str(arg.exp)))
-            elif isinstance(arg, Symbol):
+            elif isinstance(arg, (Symbol, Add)):
                 if pow != 1 and len(eqn.args) == 2:
                     # it's got to this part from a Pow object
-                    parts.append((arg.name, str(pow * eqn.args[-1])))
+                    if hasattr(arg, "name"):
+                        parts.append((arg.name, str(pow * eqn.args[-1])))
+                    else:
+                        parts.append((str(arg), str(pow * eqn.args[-1])))
                     break
                 else:
                     parts.append((arg.name, str(pow)))
