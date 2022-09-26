@@ -138,7 +138,7 @@ ALLOWED_VARIABLES = {
         "units": "Hz / s^2",
         "sign": None,
     },
-    "gwfdot": {
+    "gwfddot": {
         "description": "Gravitational-wave second frequency derivative",
         "latex_string": r"\dot{f}_{\rm gw}",
         "aliases": ["gwfddot", "fddotgw", "f2gw"],

@@ -807,6 +807,12 @@ class EquationBase:
 
         newkwargs["parts"] = self.generate_parts(expand_power_base(neweq, force=True))
 
+        # pass on any converter functions
+        if "converters" not in newkwargs:
+            newkwargs["converters"] = other.converters
+        else:
+            newkwargs["converters"].update(other.converters)
+
         return EquationBase(**newkwargs)
 
     @property
