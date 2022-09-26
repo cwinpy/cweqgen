@@ -1,7 +1,7 @@
 The CW Equation Generator
 =========================
 
-This package, "cweqgen" (pronouced like "*Queck-Jen*"), generates a range of common equations used
+This package, "cweqgen" (pronouced like "*Kwek-Jen*"), generates a range of common equations used
 by `continuous gravitational-wave <https://www.ligo.org/science/GW-Continuous.php>`_ community. As
 well as providing the LaTeX string for the equation, it can evaluate the equations based on
 specified values, and create a LaTeX string based on supplied fiducial values.
